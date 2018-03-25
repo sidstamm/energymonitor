@@ -1,0 +1,84 @@
+<!--
+  -- Shows cool graphs of energy and temperature and clouds.
+  -- March 2018
+  -- Sid Stamm <sidstamm@gmail.com>
+  -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<script src="d3/d3.min.js"></script>
+<style>
+body {
+  font-family: arial;
+}
+
+svg text {
+  font-family: arial;
+  font-size: 8pt;
+}
+
+path { 
+    vector-effect: non-scaling-stroke;
+    stroke: steelblue;
+    stroke-width: 1.5;
+    fill: none;
+}
+
+path#dewpt_path { 
+    stroke: rgb(70, 105, 70);
+}
+path#temps_path { 
+    stroke: rgb(10, 195, 10);
+}
+path#clouds_path { 
+    stroke: rgba(10, 10, 10, 0.1);
+    fill: rgba(10, 10, 10, 0.2);
+}
+
+path#cons_path { 
+    stroke: rgba(255, 155, 55, 0.3);
+    fill: rgba(255, 155, 55, 0.1);
+}
+path#net_cons_path { 
+    stroke: rgb(255, 155, 55);
+    fill: rgba(255, 155, 55, 0.3);
+}
+
+path#prod_path { 
+    stroke: rgba(50, 155, 255, 0.3);
+    fill: rgba(51, 155, 255, 0.1);
+}
+path#net_prod_path { 
+    stroke: rgb(50, 155, 255);
+    fill: rgba(51, 155, 255, 0.3);
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: grey;
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+
+rect.pane {
+  cursor: move;
+  fill: none; /*rgba(0,0,255, 0.1);*/
+  pointer-events: all;
+}
+</style>
+
+</head>
+<body>
+<h1>Energy usage data stats</h1>
+<p>Drag to pan, mouse wheel (or zoom) to zoom X axis.</p>
+
+<svg width="900" height="500" id="graph" style="border: 1px solid black;"></svg>
+
+<script language="javascript" src="graph.js"></script>
+
+</body>
+
+</html>
