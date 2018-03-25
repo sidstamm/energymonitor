@@ -2,6 +2,10 @@
 
 Monitors energy usage (and production) and displays reports through a web site.
 
+## probes/ directory
+
+Here are scripts for fetching data from devices, NOAA, etc.
+
 ## www/ directory
 
 This contains the web site.  Once you've put this somewhere you will need:
