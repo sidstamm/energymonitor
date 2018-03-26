@@ -3,7 +3,7 @@ www/d3
 
 # Don't sync these -- maybe big data or private info.
 www/data/temps.csv
-www/data/energy.csv
+www/data/envoy.csv
 
 # Also skip any .htaccess
 www/.htaccess
