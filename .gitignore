@@ -1,2 +1,9 @@
 # Get d3 from another place.
 www/d3
+
+# Don't sync these -- maybe big data or private info.
+www/temps.csv
+www/energy.csv
+
+# Also skip any .htaccess
+www/.htaccess
