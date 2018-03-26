@@ -154,7 +154,7 @@ function hackAddZeroesToEnds(data, fields) {
 }
 
 
-d3.csv("data/envoy.csv",
+d3.csv("data/envoy.csv", {credentials: 'same-origin'},
   function(m) { /* Pre-process function for all data rows */
     m['timestamp'] = d3TimeParser(new Date(m.Time).toLocaleString());
 
@@ -168,10 +168,8 @@ d3.csv("data/envoy.csv",
       }
     }
     return m;
-  },
-
-  function(error, data) { /* Post-process callback */
-    if (error) { throw error; }
+  }).then(function(data) { /* Post-process callback */
+    //if (error) { throw error; }
 
     // Iterate through and calculate diffs.
     let lastWhP = 0;
@@ -214,7 +212,7 @@ d3.csv("data/envoy.csv",
     draw();   
   });
 
-d3.csv("data/temps.csv",
+d3.csv("data/temps.csv", {credentials: 'same-origin'},
   function(m) {
     m['timestamp'] = d3.utcParse("%Y%m%d%H%M")(m.Date.trim() + m.Time.trim());
 
@@ -245,9 +243,8 @@ d3.csv("data/temps.csv",
     }
 
     return m;
-  },
-  function(error, data) {
-    if (error) { throw error; }
+  }).then(function(data) {
+    //if (error) { throw error; }
 
     // clean out crappy dates
     data = data.filter(function(d) {
