@@ -197,7 +197,11 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
     hackAddZeroesToEnds(data, ["ProdkWhDelta", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
 
     // Scale the range to show the data nicely
-    xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
+    //xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
+    let maxtime =  d3.max(data, function(d) { return d.timestamp; });
+    let mintime = new Date(new Date().setDate(maxtime.getDate()-2));
+    xscale.domain([mintime, maxtime]);
+
     //yscale_energy.domain([d3.max(data, function(d) { return d.ProdkWhDelta; })*1.5, 
     //                      d3.min(data, function(d) { return d.ConskWhDelta; })]);
     yscale_energy.domain([5, -2.5]);
