@@ -18,6 +18,7 @@ if [[ $# -ne 1 ]] ; then
 fi
 
 OUTPUTFILE=$1
+MYPATH="`dirname $0`"
 
 ## Heavyweight data -- too much really for this purpose.
 #curl -O https://www1.ncdc.noaa.gov/pub/data/noaa/2018/724373-03868-2018.gz 
@@ -26,7 +27,7 @@ OUTPUTFILE=$1
 ## "Lite" information (may be enough):
 # ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-lite/2018/724373-03868-2018.gz
 curl -o ${DL_FILE} ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-lite/${YEAR}/${DL_FILE}
-gunzip -c ${DL_FILE} | python noaa-isdlite2csv.py > ${OUTPUTFILE}
+gunzip -c ${DL_FILE} | python ${MYPATH}/noaa-isdlite2csv.py > ${OUTPUTFILE}
 
 ## Probably should eventually use the REST api:
 # https://www.ncdc.noaa.gov/cdo-web/webservices/v2
