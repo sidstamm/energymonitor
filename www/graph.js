@@ -23,6 +23,27 @@ var svgElt = d3.select("#graph")
 // Append all the paths to the main SVG element.
 G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
 
+function findNearestPointOnPathX(path, x) {
+  let pathLength = path.getTotalLength();
+  let beginning = x, end = pathLength, target;
+  var pos;
+  while (true) {
+    // start in middle and do binary search
+    target = Math.floor((beginning + end) / 2);
+    pos = path.getPointAtLength(target);
+
+    // stop if we get to an end or invalid pos
+    if ((target === end || target === beginning) && pos.x !== x) { break; }
+
+    // divide the range in half until pos.x == x
+    if      (pos.x > x) end = target;
+    else if (pos.x < x) beginning = target;
+    else                break; //position found
+  }
+  return pos;
+}
+
+
 svgElt.append("svg:rect")
       .attr("class", "pane")
       .attr("width", 900)
@@ -59,38 +80,18 @@ svgElt.append("svg:rect")
         var prod_path = d3.select("path#prod_path").node();
         var cons_path = d3.select("path#cons_path").node();
 
-        var pathLength = cons_path.getTotalLength();
-        var x = d3.event.pageX - margin.left; 
-        var beginning = x, end = pathLength, target;
-        var pos_p, pos_c;
-        while (true) {
-          target = Math.floor((beginning + end) / 2);
-          pos_c = cons_path.getPointAtLength(target);
-          if ((target === end || target === beginning) && pos_c.x !== x) {
-              break;
-          }
-          if (pos_c.x > x)      end = target;
-          else if (pos_c.x < x) beginning = target;
-          else                break; //position found
-        }
-        console.log("cons: " + yscale_energy.invert(pos_c.y).toFixed(2));
+        let x = d3.event.pageX - margin.left;
+        var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
+        var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
 
-        pathLength = prod_path.getTotalLength();
-        x = d3.event.pageX - margin.left; 
-        beginning = x, end = pathLength, target;
-        while (true) {
-          target = Math.floor((beginning + end) / 2);
-          pos_p = prod_path.getPointAtLength(target);
-          if ((target === end || target === beginning) && pos_p.x !== x) {
-              break;
-          }
-          if (pos_p.x > x)      end = target;
-          else if (pos_p.x < x) beginning = target;
-          else                break; //position found
-        }
-        console.log("prod: " + yscale_energy.invert(pos_p.y).toFixed(2));
+        d3.select("span#consspan")
+          .text(yscale_energy.invert(pos_c.y).toFixed(2));
+
+        d3.select("span#prodspan")
+          .text(yscale_energy.invert(pos_p.y).toFixed(2));
 
       });
+
 
 // for mouseover
 var mouseG = svgElt.append("g")
@@ -137,16 +138,15 @@ var G_GENERATORS = {
 };
 
 
-/*
+
 // for cutting stuff  -- not sure why it doesn't work.
 svgElt.append("svg:clipPath")
     .attr("id", "clip")
-  .append("svg:rect")
-    .attr("x", margin.left)
+    .append("svg:rect")
+    .attr("x", 0)
     .attr("y", 0)
-    .attr("width", width - margin.left)
+    .attr("width", width)
     .attr("height", height);
-    */
 
 
 // Add the x Axis
@@ -186,7 +186,6 @@ svgElt.append("text")
 //      .text("Temp/Dew pt °F");
 
 function draw() {
-  
   // set up the axes
   svgElt.select("g.x.axis")      .call(xaxis);
   svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy));
@@ -201,6 +200,11 @@ function draw() {
   svgElt.select("path#temps_path")    .attr("d", G_GENERATORS.temps);
   svgElt.select("path#clouds_path")   .attr("d", G_GENERATORS.cloud);
   svgElt.select("path#dewpt_path")    .attr("d", G_GENERATORS.dewpt);
+
+  // apply clipping
+  G_PATHS.forEach(function(p) {
+    svgElt.select("path#" + p).attr("clip-path", "url(#clip)");
+  });
 }
 
 /**
@@ -357,5 +361,9 @@ function zoom() {
       svgElt.select("path#" + p)
             .attr("transform", "translate(" + d3.event.transform.x + ", 0) scale(" + d3.event.transform.k + ", 1) ");
       });
+
+  // also move the clipper!
+  svgElt.select("#clip")
+          .attr("transform", "translate(" + -d3.event.transform.x + ", 0) scale(" + d3.event.transform.k + ", 1) ");
 }
 
