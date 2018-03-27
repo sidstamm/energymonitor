@@ -27,8 +27,78 @@ svgElt.append("svg:rect")
       .attr("class", "pane")
       .attr("width", 900)
       .attr("height", 600)
+      .attr('pointer-events', 'all')
       .style("border", "1px solid black")
-      .call(d3.zoom().on("zoom", zoom));
+      .call(d3.zoom().on("zoom", zoom))
+      .on('mouseout', function() { // on mouse out hide line, circles and text
+        d3.select(".mouse-line")
+          .style("opacity", "0");
+        d3.selectAll(".mouse-per-line circle")
+          .style("opacity", "0");
+        d3.selectAll(".mouse-per-line text")
+          .style("opacity", "0");
+      })
+      .on('mouseover', function() { // on mouse in show line, circles and text
+        d3.select(".mouse-line")
+          .style("opacity", "1");
+        d3.selectAll(".mouse-per-line circle")
+          .style("opacity", "1");
+        d3.selectAll(".mouse-per-line text")
+          .style("opacity", "1");
+      })
+      .on('mousemove', function() { // mouse moving over canvas
+        var mouse = d3.mouse(this);
+        d3.select(".mouse-line")
+          .attr("d", function() {
+            var d = "M" + mouse[0] + "," + height;
+            d += " " + mouse[0] + "," + 0;
+            return d;
+          });
+
+        // also display some data
+        var prod_path = d3.select("path#prod_path").node();
+        var cons_path = d3.select("path#cons_path").node();
+
+        var pathLength = cons_path.getTotalLength();
+        var x = d3.event.pageX - margin.left; 
+        var beginning = x, end = pathLength, target;
+        var pos_p, pos_c;
+        while (true) {
+          target = Math.floor((beginning + end) / 2);
+          pos_c = cons_path.getPointAtLength(target);
+          if ((target === end || target === beginning) && pos_c.x !== x) {
+              break;
+          }
+          if (pos_c.x > x)      end = target;
+          else if (pos_c.x < x) beginning = target;
+          else                break; //position found
+        }
+        console.log("cons: " + yscale_energy.invert(pos_c.y).toFixed(2));
+
+        pathLength = prod_path.getTotalLength();
+        x = d3.event.pageX - margin.left; 
+        beginning = x, end = pathLength, target;
+        while (true) {
+          target = Math.floor((beginning + end) / 2);
+          pos_p = prod_path.getPointAtLength(target);
+          if ((target === end || target === beginning) && pos_p.x !== x) {
+              break;
+          }
+          if (pos_p.x > x)      end = target;
+          else if (pos_p.x < x) beginning = target;
+          else                break; //position found
+        }
+        console.log("prod: " + yscale_energy.invert(pos_p.y).toFixed(2));
+
+      });
+
+// for mouseover
+var mouseG = svgElt.append("g")
+                   .attr("class", "mouse-over-effects");
+mouseG.append("path") // for mouseover vertical line
+      .attr("class", "mouse-line")
+      .attr("opacity", "0");
+
 
 //scales
 var xscale        = d3.scaleTime().range([0, width   ]);
@@ -271,6 +341,8 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
     // plot it!
     draw();   
   });
+
+
 
 
 function zoom() {
