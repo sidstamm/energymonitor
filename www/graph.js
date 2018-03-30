@@ -23,12 +23,86 @@ var svgElt = d3.select("#graph")
 // Append all the paths to the main SVG element.
 G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
 
+function findNearestPointOnPathX(path, x) {
+  let pathLength = path.getTotalLength();
+  let beginning = x, end = pathLength, target;
+  var pos;
+  while (true) {
+    // start in middle and do binary search
+    target = Math.floor((beginning + end) / 2);
+    pos = path.getPointAtLength(target);
+
+    // stop if we get to an end or invalid pos
+    if ((target === end || target === beginning) && pos.x !== x) { break; }
+
+    // divide the range in half until pos.x == x
+    if      (pos.x > x) end = target;
+    else if (pos.x < x) beginning = target;
+    else                break; //position found
+  }
+  return pos;
+}
+
+
+/**
+ * This is the event handling rect.
+ */
 svgElt.append("svg:rect")
       .attr("class", "pane")
-      .attr("width", 900)
-      .attr("height", 600)
-      .style("border", "1px solid black")
-      .call(d3.zoom().on("zoom", zoom));
+      .attr("id", "event_rect")
+      .attr("width", width)
+      .attr("height", height)
+      .attr('pointer-events', 'all')
+      .call(d3.zoom().on("zoom", function(){
+        let oldxscale = xscale;
+        let newxscale = d3.event.transform.rescaleX(xscale);
+        draw(newxscale);
+      }))
+      .on('mouseout', function() { // on mouse out hide line, circles and text
+        d3.select(".mouse-line")
+          .style("opacity", "0");
+        d3.selectAll(".mouse-per-line circle")
+          .style("opacity", "0");
+        d3.selectAll(".mouse-per-line text")
+          .style("opacity", "0");
+      })
+      .on('mouseover', function() { // on mouse in show line, circles and text
+        d3.select(".mouse-line")
+          .style("opacity", "1");
+        d3.selectAll(".mouse-per-line circle")
+          .style("opacity", "1");
+        d3.selectAll(".mouse-per-line text")
+          .style("opacity", "1");
+      })
+      .on('mousemove', function() { // mouse moving over canvas
+        var mouse = d3.mouse(this);
+        d3.select(".mouse-line")
+          .attr("d", function() {
+            var d = "M" + mouse[0] + "," + height;
+            d += " " + mouse[0] + "," + 0;
+            return d;
+          });
+
+        // also display some data
+        let x = d3.event.pageX - margin.left;
+        var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
+        var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
+
+        d3.select("span#consspan")
+          .text(yscale_energy.invert(pos_c.y).toFixed(2));
+
+        d3.select("span#prodspan")
+          .text(yscale_energy.invert(pos_p.y).toFixed(2));
+
+      });
+
+
+// for mouseover
+var mouseG = svgElt.append("g")
+                   .attr("class", "mouse-over-effects");
+mouseG.append("path") // for mouseover vertical line
+      .attr("class", "mouse-line")
+      .attr("opacity", "0");
 
 //scales
 var xscale        = d3.scaleTime().range([0, width   ]);
@@ -57,26 +131,23 @@ function makeAreaForYscaleField(yscale, fld) {
 
 // generators for the paths (place data on a line)
 var G_GENERATORS = {
-    'consumption' : makeLineForYscaleField(yscale_energy, "ConskWhDelta").curve(d3.curveStep),
-    'production'  : makeLineForYscaleField(yscale_energy, "ProdkWhDelta").curve(d3.curveStep),
-    'net_prod'    : makeLineForYscaleField(yscale_energy, "NetProdkWhDelta").curve(d3.curveStep),
-    'net_cons'    : makeLineForYscaleField(yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
-    'temps'       : makeLineForYscaleField(yscale_temps,  "Temp"),
-    'cloud'       : makeAreaForYscaleField(yscale_cloud,  "skycover").curve(d3.curveStep),
-    'dewpt'       : makeLineForYscaleField(yscale_temps,  "dewpt")
+    'cons_path'     : makeLineForYscaleField(yscale_energy, "ConskWhDelta").curve(d3.curveStep),
+    'prod_path'     : makeLineForYscaleField(yscale_energy, "ProdkWhDelta").curve(d3.curveStep),
+    'net_prod_path' : makeLineForYscaleField(yscale_energy, "NetProdkWhDelta").curve(d3.curveStep),
+    'net_cons_path' : makeLineForYscaleField(yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
+    'temps_path'    : makeLineForYscaleField(yscale_temps,  "Temp"),
+    'clouds_path'   : makeAreaForYscaleField(yscale_cloud,  "skycover").curve(d3.curveStep),
+    'dewpt_path'    : makeLineForYscaleField(yscale_temps,  "dewpt")
 };
 
 
-/*
+
 // for cutting stuff  -- not sure why it doesn't work.
-svgElt.append("svg:clipPath")
+svgElt.append("clipPath")
     .attr("id", "clip")
-  .append("svg:rect")
-    .attr("x", margin.left)
-    .attr("y", 0)
-    .attr("width", width - margin.left)
+    .append("rect")
+    .attr("width", width)
     .attr("height", height);
-    */
 
 
 // Add the x Axis
@@ -115,22 +186,26 @@ svgElt.append("text")
 //      .attr("transform", "translate("+(width + 35)+","+(height/2)+")rotate(-90)")  // centre below axis
 //      .text("Temp/Dew pt °F");
 
-function draw() {
-  
+function draw(xscale) {
   // set up the axes
-  svgElt.select("g.x.axis")      .call(xaxis);
+  svgElt.select("g.x.axis")      .call(xaxis.scale(xscale));
   svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy));
   svgElt.select("g.temp_axis")   .call(d3.axisRight(yscale_temps));
   svgElt.select("g.cloud_axis")  .call(d3.axisRight(yscale_cloud));
 
+  // transform all of the paths
+  G_PATHS.forEach(function(p) {
+    svgElt.select("path#" + p)
+      .attr("d", G_GENERATORS[p].x(function(d) {return xscale(d.timestamp);}));
+    });
+
   // process the data in the paths
-  svgElt.select("path#cons_path")     .attr("d", G_GENERATORS.consumption);
-  svgElt.select("path#prod_path")     .attr("d", G_GENERATORS.production);
-  svgElt.select("path#net_prod_path") .attr("d", G_GENERATORS.net_prod);
-  svgElt.select("path#net_cons_path") .attr("d", G_GENERATORS.net_cons);
-  svgElt.select("path#temps_path")    .attr("d", G_GENERATORS.temps);
-  svgElt.select("path#clouds_path")   .attr("d", G_GENERATORS.cloud);
-  svgElt.select("path#dewpt_path")    .attr("d", G_GENERATORS.dewpt);
+  G_PATHS.forEach(function(p) {
+    // insert data
+    svgElt.select("path#" + p).attr("d", G_GENERATORS[p]);
+    // apply clipping
+    svgElt.select("path#" + p).attr("clip-path", "url(#clip)");
+  });
 }
 
 /**
@@ -197,7 +272,11 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
     hackAddZeroesToEnds(data, ["ProdkWhDelta", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
 
     // Scale the range to show the data nicely
-    xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
+    //xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
+    let maxtime =  d3.max(data, function(d) { return d.timestamp; });
+    let mintime = new Date(new Date().setDate(maxtime.getDate()-2));
+    xscale.domain([mintime, maxtime]);
+
     //yscale_energy.domain([d3.max(data, function(d) { return d.ProdkWhDelta; })*1.5, 
     //                      d3.min(data, function(d) { return d.ConskWhDelta; })]);
     yscale_energy.domain([5, -2.5]);
@@ -209,7 +288,7 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
     svgElt.select("path#net_cons_path").data([data]);
 
     // plot it!
-    draw();   
+    draw(xscale);
   });
 
 d3.csv("data/temps.csv", {credentials: 'same-origin'},
@@ -265,21 +344,6 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
     svgElt.select("path#dewpt_path").data([data]);
 
     // plot it!
-    draw();   
+    draw(xscale);
   });
-
-
-function zoom() {
-  var oldxscale = xscale;
-  var newxscale = d3.event.transform.rescaleX(xscale);
-
-  // scale the axis
-  svgElt.select("g.x.axis").call(xaxis.scale(newxscale));
-
-  // transform all of the paths
-  G_PATHS.forEach(function(p) {
-      svgElt.select("path#" + p)
-            .attr("transform", "translate(" + d3.event.transform.x + ", 0) scale(" + d3.event.transform.k + ", 1) ");
-      });
-}
 
