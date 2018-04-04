@@ -23,6 +23,32 @@ var svgElt = d3.select("#graph")
 // Append all the paths to the main SVG element.
 G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
 
+var nrg = {
+  temps: [], /* This is where ALL the temp data will go. */
+  energy: [], /* This is where pruned nrg will go. */
+  raw_energy: [], /* This is where ALL the nrg will go. */
+
+  pageAdvance: function(numDays) {
+    console.log("Advancing: " + numDays);
+    nrg.pageOffset += numDays;
+    // clamp to 0
+    if (nrg.pageOffset > 0) { nrg.pageOffset = 0; }
+    console.log("offset: " + nrg.pageOffset);
+  },
+
+  /* This is how far from the end to show. */
+  pageOffset: 0,
+  pageHours: 36,
+
+  pruneEnergyData: function() {
+    let lastdate = nrg.raw_energy[nrg.raw_energy.length - 1].timestamp;
+    console.log(lastdate);
+    //nrg.energy = nrg.raw_energyfilter( d => (< d.timestamp < ) );
+    nrg.energy = nrg.raw_energy;
+    hackAddZeroesToEnds(nrg.energy, ["ProdkWhDelta", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
+  },
+};
+
 function findNearestPointOnPathX(path, x) {
   let pathLength = path.getTotalLength();
   let beginning = x, end = pathLength, target;
@@ -193,6 +219,12 @@ function draw(xscale) {
   svgElt.select("g.temp_axis")   .call(d3.axisRight(yscale_temps));
   svgElt.select("g.cloud_axis")  .call(d3.axisRight(yscale_cloud));
 
+  // apply data sets
+  svgElt.select("path#cons_path").data([nrg.energy]);
+  svgElt.select("path#prod_path").data([nrg.energy]);
+  svgElt.select("path#net_prod_path").data([nrg.energy]);
+  svgElt.select("path#net_cons_path").data([nrg.energy]);
+
   // transform all of the paths
   G_PATHS.forEach(function(p) {
     svgElt.select("path#" + p)
@@ -269,11 +301,13 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
       lastWhC = data[i].ConsWhToday;
     }
 
-    hackAddZeroesToEnds(data, ["ProdkWhDelta", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
+    // store for future use
+    nrg.raw_energy = data;
+    nrg.pruneEnergyData();
 
     // Scale the range to show the data nicely
     //xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
-    let maxtime =  d3.max(data, function(d) { return d.timestamp; });
+    let maxtime =  d3.max(nrg.energy, function(d) { return d.timestamp; });
     let mintime = new Date(new Date().setDate(maxtime.getDate()-2));
     xscale.domain([mintime, maxtime]);
 
@@ -282,11 +316,6 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
     yscale_energy.domain([5, -2.5]);
 
     // set the axes
-    svgElt.select("path#cons_path").data([data]);
-    svgElt.select("path#prod_path").data([data]);
-    svgElt.select("path#net_prod_path").data([data]);
-    svgElt.select("path#net_cons_path").data([data]);
-
     // plot it!
     draw(xscale);
   });

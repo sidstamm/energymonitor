@@ -68,6 +68,15 @@ rect.pane {
   fill: none; /*rgba(0,0,255, 0.1);*/
   pointer-events: all;
 }
+
+button.pagebutton {
+  height: 500px;
+  background-color: rgb(200, 200, 255);
+  border: 1px solid black;
+  margin: 0px;
+  padding: 2px;
+  vertical-align: top;
+}
 </style>
 
 </head>
@@ -77,7 +86,11 @@ rect.pane {
 
 Production: <span id="prodspan"></span>kWh, Consumption: <span id="consspan"></span>kWh<br/>
 
+<div style="height:510px; width:1000px;">
+<button class="pagebutton" onclick="nrg.pageAdvance(-1);">&lt;</button>
 <svg width="900" height="500" id="graph" style="border: 1px solid black;"></svg>
+<button class="pagebutton" onclick="nrg.pageAdvance(1);">&gt;</button>
+</div>
 
 <script language="javascript" src="graph.js"></script>
 
