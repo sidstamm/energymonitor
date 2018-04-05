@@ -253,12 +253,6 @@ svgElt.append("text")
 //      .text("Temp/Dew pt °F");
 
 function draw(xscale) {
-  // set up the axes
-  svgElt.select("g.x.axis")      .call(xaxis.scale(xscale));
-  svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy));
-  svgElt.select("g.temp_axis")   .call(d3.axisRight(yscale_temps));
-  svgElt.select("g.cloud_axis")  .call(d3.axisRight(yscale_cloud));
-
   // apply data sets
   svgElt.select("path#cons_path").data([nrg.energy]);
   svgElt.select("path#prod_path").data([nrg.energy]);
@@ -286,6 +280,13 @@ function draw(xscale) {
     // apply clipping
     svgElt.select("path#" + p).attr("clip-path", "url(#clip)");
   });
+
+  // set up the axes
+  svgElt.select("g.x.axis")      .call(xaxis.scale(xscale));
+  svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy));
+  svgElt.select("g.temp_axis")   .call(d3.axisRight(yscale_temps));
+  svgElt.select("g.cloud_axis")  .call(d3.axisRight(yscale_cloud));
+
 }
 
 /**
