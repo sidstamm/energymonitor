@@ -23,8 +23,17 @@ var svgElt = d3.select("#graph")
 // Append all the paths to the main SVG element.
 G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
 
+function DateRange(ts, offset, hours) {
+  let de = new Date(ts);
+  de.setDate(ts.getDate() + offset);
+  let dt = new Date(de);
+  dt.setHours(de.getHours() - hours);
+  return [ dt, de ];
+}
+
 var nrg = {
-  temps: [], /* This is where ALL the temp data will go. */
+  raw_weather: [], /* This is where ALL the temp data will go. */
+  weather: [], /* This is where pruned temp data will go. */
   energy: [], /* This is where pruned nrg will go. */
   raw_energy: [], /* This is where ALL the nrg will go. */
 
@@ -38,18 +47,42 @@ var nrg = {
 
   /* This is how far from the end to show. */
   pageOffset: 0,
-  pageHours: 36,
+  pageHours: 100,
+  pageRange: null,
+
+  pruneWeatherData: function() {
+    if (nrg.pageRange == null) {
+      let lastdate = nrg.raw_weather[nrg.raw_weather.length - 1].timestamp;
+      nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
+      xscale.domain(nrg.pageRange);
+    }
+
+    nrg.weather = nrg.raw_weather.filter(
+        function(d) {
+          return nrg.pageRange[0] <= d.timestamp
+              && nrg.pageRange[1] >= d.timestamp;
+        });
+    //hackAddZeroesToEnds(nrg.weather, ["Temp", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
+  },
 
   pruneEnergyData: function() {
     let lastdate = nrg.raw_energy[nrg.raw_energy.length - 1].timestamp;
-    console.log(lastdate);
-    //nrg.energy = nrg.raw_energyfilter( d => (< d.timestamp < ) );
-    nrg.energy = nrg.raw_energy;
-    hackAddZeroesToEnds(nrg.energy, ["ProdkWhDelta", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
+    nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
+    nrg.energy = nrg.raw_energy.filter(
+        function(d) {
+          return nrg.pageRange[0] <= d.timestamp
+              && nrg.pageRange[1] >= d.timestamp;
+        });
+    hackAddZeroesToEnds( nrg.energy,
+                         ["ProdkWhDelta", "ConskWhDelta",
+                          "NetProdkWhDelta", "NetConskWhDelta",
+                          "ProdWhToday", "ConsWhToday"]);
+    xscale.domain(nrg.pageRange);
   },
 };
 
 function findNearestPointOnPathX(path, x) {
+  if (!path) { return {'x':0, 'y':0}; }
   let pathLength = path.getTotalLength();
   let beginning = x, end = pathLength, target;
   var pos;
@@ -225,6 +258,14 @@ function draw(xscale) {
   svgElt.select("path#net_prod_path").data([nrg.energy]);
   svgElt.select("path#net_cons_path").data([nrg.energy]);
 
+  svgElt.select("path#temps_path").data([nrg.weather]);
+  svgElt.select("path#clouds_path").data([nrg.weather]);
+  svgElt.select("path#dewpt_path").data([nrg.weather]);
+
+  yscale_temps.domain([d3.max(nrg.weather, function(d) { return d.Temp; }), -20]);
+  yscale_cloud.domain(d3.extent(nrg.weather, function(d) { return d.skycover; }));
+  yscale_energy.domain([5, -2.5]);
+
   // transform all of the paths
   G_PATHS.forEach(function(p) {
     svgElt.select("path#" + p)
@@ -251,13 +292,14 @@ function hackAddZeroesToEnds(data, fields) {
   fields.forEach(function(d) { elt[d] = 0; });
 
   // start element
-  elt.timestamp = d3TimeParser((new Date(new Date(data[0].Time).getTime() - 5000)).toLocaleString());
+  elt.timestamp = (new Date(new Date(data[0].timestamp).getTime() - 5000));
   data.unshift(elt);
 
   // end element
   elt = JSON.parse(JSON.stringify(elt)); //make another copy
   elt.timestamp = d3TimeParser((new Date(new Date(data[data.length-1].Time).getTime() + 5000)).toLocaleString());
   data.push(elt);
+  return data;
 }
 
 
@@ -307,15 +349,10 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
 
     // Scale the range to show the data nicely
     //xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
-    let maxtime =  d3.max(nrg.energy, function(d) { return d.timestamp; });
-    let mintime = new Date(new Date().setDate(maxtime.getDate()-2));
-    xscale.domain([mintime, maxtime]);
+    //let maxtime =  d3.max(nrg.energy, function(d) { return d.timestamp; });
+    //let mintime = new Date(new Date().setDate(maxtime.getDate()-2));
+    //xscale.domain([mintime, maxtime]);
 
-    //yscale_energy.domain([d3.max(data, function(d) { return d.ProdkWhDelta; })*1.5, 
-    //                      d3.min(data, function(d) { return d.ConskWhDelta; })]);
-    yscale_energy.domain([5, -2.5]);
-
-    // set the axes
     // plot it!
     draw(xscale);
   });
@@ -352,7 +389,6 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
 
     return m;
   }).then(function(data) {
-    //if (error) { throw error; }
 
     // clean out crappy dates
     data = data.filter(function(d) {
@@ -360,18 +396,13 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
            && d.Temp != CtoF(999.9);
     });
 
+    nrg.raw_weather = data;
+    nrg.pruneWeatherData();
+
     // Scale the range of the data
     //xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
     //yscale_energy.domain([0, d3.max(data, function(d) { return d.ds_rate; })]);
     //yscale_temps.domain([d3.max(data, function(d) { return d.Temp; }), 0]);
-    yscale_temps.domain([d3.max(data, function(d) { return d.Temp; }), -20]);
-    yscale_cloud.domain(d3.extent(data, function(d) { return d.skycover; }));
-    //yscale_cloud.domain([1, 0]);
-
-    svgElt.select("path#temps_path").data([data]);
-    svgElt.select("path#clouds_path").data([data]);
-    svgElt.select("path#dewpt_path").data([data]);
-
     // plot it!
     draw(xscale);
   });
