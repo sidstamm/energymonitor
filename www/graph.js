@@ -162,7 +162,7 @@ svgElt.append("svg:rect")
       .on('mousemove', function() { // mouse moving over canvas
 
         // also display some data
-        let x = d3.event.layerX - margin.left;
+        let x = d3.event.offsetX;
         //console.log(x);
         var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
         var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
@@ -233,13 +233,13 @@ var G_GENERATORS = {
 
 
 
-// for cutting stuff  -- not sure why it doesn't work.
-svgElt.append("clipPath")
-    .attr("id", "clip")
-    .append("rect")
-    .attr("width", width)
-    .attr("height", height);
-
+//// for cutting stuff  -- not sure why it doesn't work.
+//svgElt.append("clipPath")
+//    .attr("id", "clip")
+//    .append("rect")
+//    .attr("width", width)
+//    .attr("height", height);
+//
 
 // Add the x Axis
 svgElt.append("g")
@@ -303,7 +303,7 @@ function draw(xscale) {
     // insert data
     svgElt.select("path#" + p).attr("d", G_GENERATORS[p]);
     // apply clipping
-    svgElt.select("path#" + p).attr("clip-path", "url(#clip)");
+//    svgElt.select("path#" + p).attr("clip-path", "url(#clip)");
   });
 
   // set up the axes
