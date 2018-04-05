@@ -87,9 +87,14 @@ button.pagebutton {
 </head>
 <body>
 <h1>Energy usage data stats</h1>
-<p>Drag to pan, mouse wheel (or zoom) to zoom X axis.</p>
 
-Production: <span id="prodspan"></span>kWh, Consumption: <span id="consspan"></span>kWh<br/>
+<p>Production: <span id="prodspan"></span>kWh, Consumption: <span id="consspan"></span>kWh</p>
+
+<p>
+<button id="zoomout" class="zoombtn" onclick="nrg.pageZoom(.5);">-</button>
+<button id="zoomin" class="zoombtn"  onclick="nrg.pageZoom(2);">+</button>
+</p>
+
 
 <div style="height:510px; width:1000px;">
 <button class="pagebutton" onclick="nrg.pageAdvance(-1);">&lt;</button>

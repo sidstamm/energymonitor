@@ -42,23 +42,41 @@ var nrg = {
   pageHours: 72,
   pageRange: null,
 
+  pageZoom: function(factor) {
+    nrg.pageHours /= factor;
+    nrg.updatePage();
+  },
+
   pageAdvance: function(numDays) {
     //console.log("Advancing: " + numDays);
     nrg.pageOffset += numDays;
 
     // clamp to 0
     if (nrg.pageOffset > 0) { nrg.pageOffset = 0; }
+    nrg.updatePage();
+  },
 
+  updatePage: function() {
     // recalculate the page and data, then redraw.
+    if (!nrg.raw_energy || !nrg.raw_weather) { return; }
     nrg.recalcPageRange();
     nrg.pruneWeatherData();
     nrg.pruneEnergyData();
     draw(xscale);
   },
 
+  /**
+   * Recalculates the pageRange (for paging).
+   * ALWAYS MUST set the pageRange to a valid range.
+   * If for some reason the data isn't loaded yet, it will default to a range ending in now.
+   */
   recalcPageRange() {
-    let dat = nrg.raw_energy ? nrg.raw_energy : nrg.raw_weather;
-    let lastdate = dat[dat.length - 1].timestamp;
+    let lastdate = new Date();
+    if (nrg.raw_energy.length > 0) {
+      lastdate = nrg.raw_energy[nrg.raw_energy.length - 1].timestamp;
+    } else if (nrg.raw_weather.length > 0) {
+      lastdate = nrg.raw_weather[nrg.raw_weather.length - 1].timestamp;
+    }
     nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
     xscale.domain(nrg.pageRange);
   },
@@ -106,6 +124,7 @@ function findNearestPointOnPathX(path, x) {
     else if (pos.x < x) beginning = target;
     else                break; //position found
   }
+
   return pos;
 }
 
@@ -141,24 +160,30 @@ svgElt.append("svg:rect")
           .style("opacity", "1");
       })
       .on('mousemove', function() { // mouse moving over canvas
-        var mouse = d3.mouse(this);
-        d3.select(".mouse-line")
-          .attr("d", function() {
-            var d = "M" + mouse[0] + "," + height;
-            d += " " + mouse[0] + "," + 0;
-            return d;
-          });
 
         // also display some data
-        let x = d3.event.pageX - margin.left;
+        let x = d3.event.layerX - margin.left;
+        //console.log(x);
         var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
         var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
 
-        d3.select("span#consspan")
-          .text(yscale_energy.invert(pos_c.y).toFixed(2));
+        var mouse = d3.mouse(this);
+        d3.select(".mouse-line")
+          .attr("d", function() {
+            var d = "M" + pos_c.x + "," + height;
+            d += " " + pos_c.x + "," + 0;
+            return d;
+          });
 
-        d3.select("span#prodspan")
-          .text(yscale_energy.invert(pos_p.y).toFixed(2));
+        if (pos_c) {
+          d3.select("span#consspan")
+            .text(yscale_energy.invert(pos_c.y).toFixed(2));
+        }
+
+        if (pos_p) {
+          d3.select("span#prodspan")
+            .text(yscale_energy.invert(pos_p.y).toFixed(2));
+        }
 
       });
 
