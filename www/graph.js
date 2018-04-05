@@ -106,6 +106,7 @@ var nrg = {
   },
 };
 
+/*
 function findNearestPointOnPathX(path, x) {
   if (!path) { return {'x':0, 'y':0}; }
   let pathLength = path.getTotalLength();
@@ -127,6 +128,7 @@ function findNearestPointOnPathX(path, x) {
 
   return pos;
 }
+*/
 
 
 /**
@@ -166,12 +168,13 @@ svgElt.append("svg:rect")
         //var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
 
         //let x = d3.event.offsetX;
-        let theX = xscale.invert(d3.mouse(this)[0]);
-        let bisectDate = d3.bisector(function(d) { return d.timestamp; }).left;
-        let i = bisectDate(nrg.energy, theX, 1); // searches based on date
-        let d0 = nrg.energy[i - 1];
-        let d1 = nrg.energy[i];
-        let d = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+
+        let theX = xscale.invert(d3.mouse(this)[0]),
+            bisectDate = d3.bisector(function(d) { return d.timestamp; }).left,
+            i  = bisectDate(nrg.energy, theX, 1), // searches based on date
+            d0 = nrg.energy[i - 1],
+            d1 = nrg.energy[i],
+            d  = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
 
         d3.select(".mouse-line")
           .attr("d", function() {
