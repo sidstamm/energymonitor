@@ -37,26 +37,34 @@ var nrg = {
   energy: [], /* This is where pruned nrg will go. */
   raw_energy: [], /* This is where ALL the nrg will go. */
 
-  pageAdvance: function(numDays) {
-    console.log("Advancing: " + numDays);
-    nrg.pageOffset += numDays;
-    // clamp to 0
-    if (nrg.pageOffset > 0) { nrg.pageOffset = 0; }
-    console.log("offset: " + nrg.pageOffset);
-  },
-
-  /* This is how far from the end to show. */
+  /* This defines the window of data (distance from most recent and num hours). */
   pageOffset: 0,
-  pageHours: 100,
+  pageHours: 72,
   pageRange: null,
 
-  pruneWeatherData: function() {
-    if (nrg.pageRange == null) {
-      let lastdate = nrg.raw_weather[nrg.raw_weather.length - 1].timestamp;
-      nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
-      xscale.domain(nrg.pageRange);
-    }
+  pageAdvance: function(numDays) {
+    //console.log("Advancing: " + numDays);
+    nrg.pageOffset += numDays;
 
+    // clamp to 0
+    if (nrg.pageOffset > 0) { nrg.pageOffset = 0; }
+
+    // recalculate the page and data, then redraw.
+    nrg.recalcPageRange();
+    nrg.pruneWeatherData();
+    nrg.pruneEnergyData();
+    draw(xscale);
+  },
+
+  recalcPageRange() {
+    let dat = nrg.raw_energy ? nrg.raw_energy : nrg.raw_weather;
+    let lastdate = dat[dat.length - 1].timestamp;
+    nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
+    xscale.domain(nrg.pageRange);
+  },
+
+  pruneWeatherData: function() {
+    if (nrg.pageRange == null) { nrg.recalcPageRange(); }
     nrg.weather = nrg.raw_weather.filter(
         function(d) {
           return nrg.pageRange[0] <= d.timestamp
@@ -66,8 +74,7 @@ var nrg = {
   },
 
   pruneEnergyData: function() {
-    let lastdate = nrg.raw_energy[nrg.raw_energy.length - 1].timestamp;
-    nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
+    if (nrg.pageRange == null) { nrg.recalcPageRange(); }
     nrg.energy = nrg.raw_energy.filter(
         function(d) {
           return nrg.pageRange[0] <= d.timestamp
