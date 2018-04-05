@@ -283,7 +283,7 @@ function draw(xscale) {
 
   // set up the axes
   svgElt.select("g.x.axis")      .call(xaxis.scale(xscale));
-  svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy));
+  svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy).tickSize(-width));
   svgElt.select("g.temp_axis")   .call(d3.axisRight(yscale_temps));
   svgElt.select("g.cloud_axis")  .call(d3.axisRight(yscale_cloud));
 
