@@ -161,29 +161,28 @@ svgElt.append("svg:rect")
       })
       .on('mousemove', function() { // mouse moving over canvas
 
-        // also display some data
-        let x = d3.event.offsetX;
-        //console.log(x);
-        var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
-        var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
+        // -- finds the closest point on the path
+        //var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
+        //var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
 
-        var mouse = d3.mouse(this);
+        //let x = d3.event.offsetX;
+        let theX = xscale.invert(d3.mouse(this)[0]);
+        let bisectDate = d3.bisector(function(d) { return d.timestamp; }).left;
+        let i = bisectDate(nrg.energy, theX, 1); // searches based on date
+        let d0 = nrg.energy[i - 1];
+        let d1 = nrg.energy[i];
+        let d = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+
         d3.select(".mouse-line")
           .attr("d", function() {
-            var d = "M" + pos_c.x + "," + height;
-            d += " " + pos_c.x + "," + 0;
-            return d;
+            // could use pos_c for mouse-following instead of snapping.
+            return "M" + xscale(d.timestamp) + "," + height
+                 + " " + xscale(d.timestamp) + "," + 0;
           });
 
-        if (pos_c) {
-          d3.select("span#consspan")
-            .text(yscale_energy.invert(pos_c.y).toFixed(2));
-        }
-
-        if (pos_p) {
-          d3.select("span#prodspan")
-            .text(yscale_energy.invert(pos_p.y).toFixed(2));
-        }
+        // update displayed data
+        d3.select("span#consspan").text(d.ConskWhDelta.toFixed(2));
+        d3.select("span#prodspan").text(d.ProdkWhDelta.toFixed(2));
 
       });
 
