@@ -112,11 +112,11 @@ svgElt.append("svg:rect")
       .attr("width", width)
       .attr("height", height)
       .attr('pointer-events', 'all')
-      .call(d3.zoom().on("zoom", function(){
-        let oldxscale = xscale;
-        let newxscale = d3.event.transform.rescaleX(xscale);
-        draw(newxscale);
-      }))
+//      .call(d3.zoom().on("zoom", function(){
+//        let oldxscale = xscale;
+//        let newxscale = d3.event.transform.rescaleX(xscale);
+//        draw(newxscale);
+//      }))
       .on('mouseout', function() { // on mouse out hide line, circles and text
         d3.select(".mouse-line")
           .style("opacity", "0");
