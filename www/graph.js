@@ -20,6 +20,13 @@ var svgElt = d3.select("#graph")
                .append("g")
                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
+// for mouseover effects
+var mouseG = svgElt.append("g")
+                   .attr("class", "mouse-over-effects");
+mouseG.append("path") // for mouseover vertical line
+      .attr("class", "mouse-line")
+      .attr("opacity", "0");
+
 // Append all the paths to the main SVG element.
 G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
 
@@ -189,13 +196,6 @@ svgElt.append("svg:rect")
 
       });
 
-
-// for mouseover
-var mouseG = svgElt.append("g")
-                   .attr("class", "mouse-over-effects");
-mouseG.append("path") // for mouseover vertical line
-      .attr("class", "mouse-line")
-      .attr("opacity", "0");
 
 //scales
 var xscale        = d3.scaleTime().range([0, width   ]);
