@@ -20,6 +20,9 @@ var svgElt = d3.select("#graph")
                .append("g")
                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
+// Append all the paths to the main SVG element.
+G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
+
 // for mouseover effects
 var mouseG = svgElt.append("g")
                    .attr("class", "mouse-over-effects");
@@ -27,8 +30,22 @@ mouseG.append("path") // for mouseover vertical line
       .attr("class", "mouse-line")
       .attr("opacity", "0");
 
-// Append all the paths to the main SVG element.
-G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
+// TODO: also do circles for weather.
+const G_MOUSECHARMS = [
+ {'dset': "energy", 'field': "ProdkWhDelta",    'units': "kWh"},
+ {'dset': "energy", 'field': "ConskWhDelta",    'units': "kWh"},
+ //{'dset': "energy", 'field': "NetProdkWhDelta", 'units': "kWh"},
+ //{'dset': "energy", 'field': "NetConskWhDelta", 'units': "kWh"}
+];
+
+var charms = mouseG.selectAll(".mouse-charm")
+                   .data(G_MOUSECHARMS)
+                   .enter()
+                   .append("g")
+                   .attr("class", "mouse-charm");
+
+charms.append("circle").attr("r", 5);
+charms.append("text").attr("transform", "translate(7,3)");
 
 function DateRange(ts, offset, hours) {
   let de = new Date(ts);
@@ -155,17 +172,17 @@ svgElt.append("svg:rect")
       .on('mouseout', function() { // on mouse out hide line, circles and text
         d3.select(".mouse-line")
           .style("opacity", "0");
-        d3.selectAll(".mouse-per-line circle")
+        d3.selectAll(".mouse-charm circle")
           .style("opacity", "0");
-        d3.selectAll(".mouse-per-line text")
+        d3.selectAll(".mouse-charm text")
           .style("opacity", "0");
       })
       .on('mouseover', function() { // on mouse in show line, circles and text
         d3.select(".mouse-line")
           .style("opacity", "1");
-        d3.selectAll(".mouse-per-line circle")
+        d3.selectAll(".mouse-charm circle")
           .style("opacity", "1");
-        d3.selectAll(".mouse-per-line text")
+        d3.selectAll(".mouse-charm text")
           .style("opacity", "1");
       })
       .on('mousemove', function() { // mouse moving over canvas
@@ -190,9 +207,24 @@ svgElt.append("svg:rect")
                  + " " + xscale(d.timestamp) + "," + 0;
           });
 
+        d3.selectAll(".mouse-charm")
+          .attr("transform", function(dx, i) {
+                // TODO: also do circles for weather.
+                let dmap = {"energy": d, "weather": null};
+                d3.select(this).select("text")
+                  .text(d[dx.field].toFixed(2) + dx.units);
+                return "translate("
+                  + xscale(d.timestamp) + ","
+                  + yscale_energy(d[dx.field]) +")";
+          });
+
         // update displayed data
         d3.select("span#consspan").text(d.ConskWhDelta.toFixed(2));
         d3.select("span#prodspan").text(d.ProdkWhDelta.toFixed(2));
+        d3.select("span#netenergyspan")
+          .text(d.ProdkWhDelta == 0
+                ? d.ConskWhDelta.toFixed(2)
+                : d.ProdkWhDelta.toFixed(2));
 
       });
 

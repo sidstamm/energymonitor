@@ -82,13 +82,21 @@ button.pagebutton {
   padding: 2px;
   vertical-align: top;
 }
+
+.mouse-charm circle {
+  fill: none;
+  stroke: rgba(0,0,0,0.3);
+  stroke-width: 2px;
+}
 </style>
 
 </head>
 <body>
 <h1>Energy usage data stats</h1>
 
-<p>Production: <span id="prodspan"></span>kWh, Consumption: <span id="consspan"></span>kWh</p>
+<p>Production: <span id="prodspan"></span>kWh,
+   Consumption: <span id="consspan"></span>kWh,
+   Net: <span id="netenergyspan"></span>kWh</p>
 
 <p>
 <button id="zoomout" class="zoombtn" onclick="nrg.pageZoom(.5);">-</button>
