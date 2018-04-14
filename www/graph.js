@@ -32,8 +32,9 @@ mouseG.append("path") // for mouseover vertical line
 
 // TODO: also do circles for weather.
 const G_MOUSECHARMS = [
- {'dset': "energy", 'field': "ProdkWhDelta",    'units': "kWh"},
- {'dset': "energy", 'field': "ConskWhDelta",    'units': "kWh"},
+ {'dset': "energy", 'field': "ProdkWhDelta",    'units': "kWh", 'yscale': 'energy'},
+ {'dset': "energy", 'field': "ConskWhDelta",    'units': "kWh", 'yscale': 'energy'},
+ {'dset': "temps",  'field': "Temp",            'units': "°F",  'yscale': 'temps'},
  //{'dset': "energy", 'field': "NetProdkWhDelta", 'units': "kWh"},
  //{'dset': "energy", 'field': "NetConskWhDelta", 'units': "kWh"}
 ];
@@ -63,7 +64,7 @@ var nrg = {
 
   /* This defines the window of data (distance from most recent and num hours). */
   pageOffset: 0,
-  pageHours: 72,
+  pageHours: 48,
   pageRange: null,
 
   pageZoom: function(factor) {
@@ -194,37 +195,52 @@ svgElt.append("svg:rect")
         //let x = d3.event.offsetX;
 
         let theX = xscale.invert(d3.mouse(this)[0]),
-            bisectDate = d3.bisector(function(d) { return d.timestamp; }).left,
-            i  = bisectDate(nrg.energy, theX, 1), // searches based on date
-            d0 = nrg.energy[i - 1],
-            d1 = nrg.energy[i],
-            d  = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+            bisectDate = d3.bisector(function(d) { return d.timestamp; }).left;
+        let i, d0, d1, de, dw;
+
+        try {
+          // identify closest point in energy dataset
+          i  = bisectDate(nrg.energy, theX, 1); // searches based on date
+          d0 = nrg.energy[i - 1];
+          d1 = nrg.energy[i];
+          de  = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+
+          // identify closest point in weather dataset
+          i = bisectDate(nrg.weather, theX, 1);
+          d0 = nrg.weather[i-1];
+          d1 = nrg.weather[i];
+          dw = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+        } catch(e) {
+          // suppress errors for incomplete data sets
+        }
 
         d3.select(".mouse-line")
           .attr("d", function() {
             // could use pos_c for mouse-following instead of snapping.
-            return "M" + xscale(d.timestamp) + "," + height
-                 + " " + xscale(d.timestamp) + "," + 0;
+            return "M" + xscale(de.timestamp) + "," + height
+                 + " " + xscale(de.timestamp) + "," + 0;
           });
 
         d3.selectAll(".mouse-charm")
           .attr("transform", function(dx, i) {
-                // TODO: also do circles for weather.
-                let dmap = {"energy": d, "weather": null};
+                let dmap = {"energy": de, "temps": dw};
+                let dscale = {"energy": yscale_energy, "temps": yscale_temps};
+                let d = dmap[dx.dset];
+                let yscale = dscale[dx.yscale];
                 d3.select(this).select("text")
                   .text(d[dx.field].toFixed(2) + dx.units);
                 return "translate("
                   + xscale(d.timestamp) + ","
-                  + yscale_energy(d[dx.field]) +")";
+                  + yscale(d[dx.field]) +")";
           });
 
         // update displayed data
-        d3.select("span#consspan").text(d.ConskWhDelta.toFixed(2));
-        d3.select("span#prodspan").text(d.ProdkWhDelta.toFixed(2));
+        d3.select("span#consspan").text(de.ConskWhDelta.toFixed(2));
+        d3.select("span#prodspan").text(de.ProdkWhDelta.toFixed(2));
         d3.select("span#netenergyspan")
-          .text(d.ProdkWhDelta == 0
-                ? d.ConskWhDelta.toFixed(2)
-                : d.ProdkWhDelta.toFixed(2));
+          .text(de.ProdkWhDelta == 0
+                ? de.ConskWhDelta.toFixed(2)
+                : de.ProdkWhDelta.toFixed(2));
 
       });
 
