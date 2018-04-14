@@ -13,24 +13,10 @@ var margin = {top: 30, right: 50, bottom: 30, left: 70},
     height = 500 - margin.top - margin.bottom;
 
 // global paths
-var G_PATHS = ["temps_path", /*"dewpt_path",*/ "clouds_path",
+const G_PATHS = ["temps_path", /*"dewpt_path",*/ "clouds_path",
                "cons_path", "prod_path", "net_prod_path", "net_cons_path"];
 
-var svgElt = d3.select("#graph")
-               .append("g")
-               .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-// Append all the paths to the main SVG element.
-G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
-
-// for mouseover effects
-var mouseG = svgElt.append("g")
-                   .attr("class", "mouse-over-effects");
-mouseG.append("path") // for mouseover vertical line
-      .attr("class", "mouse-line")
-      .attr("opacity", "0");
-
-// TODO: also do circles for weather.
+// model for the mouseover circles (charms)
 const G_MOUSECHARMS = [
  {'dset': "energy", 'field': "ProdkWhDelta",    'units': "kWh", 'yscale': 'energy'},
  {'dset': "energy", 'field': "ConskWhDelta",    'units': "kWh", 'yscale': 'energy'},
@@ -39,14 +25,6 @@ const G_MOUSECHARMS = [
  //{'dset': "energy", 'field': "NetConskWhDelta", 'units': "kWh"}
 ];
 
-var charms = mouseG.selectAll(".mouse-charm")
-                   .data(G_MOUSECHARMS)
-                   .enter()
-                   .append("g")
-                   .attr("class", "mouse-charm");
-
-charms.append("circle").attr("r", 5);
-charms.append("text").attr("transform", "translate(7,3)");
 
 function DateRange(ts, offset, hours) {
   let de = new Date(ts);
@@ -66,6 +44,16 @@ var nrg = {
   pageOffset: 0,
   pageHours: 48,
   pageRange: null,
+
+  //scales
+  xscale        : null,
+  yscale_energy : null,
+  yscale_temps  : null,
+  yscale_cloud  : null,
+
+  // global x-axis used for everything (time)
+  xaxis : null,
+
 
   pageZoom: function(factor) {
     nrg.pageHours /= factor;
@@ -87,7 +75,7 @@ var nrg = {
     nrg.recalcPageRange();
     nrg.pruneWeatherData();
     nrg.pruneEnergyData();
-    draw(xscale);
+    draw(nrg.xscale);
   },
 
   /**
@@ -103,7 +91,7 @@ var nrg = {
       lastdate = nrg.raw_weather[nrg.raw_weather.length - 1].timestamp;
     }
     nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
-    xscale.domain(nrg.pageRange);
+    nrg.xscale.domain(nrg.pageRange);
   },
 
   pruneWeatherData: function() {
@@ -127,8 +115,171 @@ var nrg = {
                          ["ProdkWhDelta", "ConskWhDelta",
                           "NetProdkWhDelta", "NetConskWhDelta",
                           "ProdWhToday", "ConsWhToday"]);
-    xscale.domain(nrg.pageRange);
+    nrg.xscale.domain(nrg.pageRange);
   },
+
+  /**
+   * Set up the SVG graph.  This runs after document load
+   * when we know things about how big to make the graph.
+   */
+  setupGraph: function() {
+    var svgElt = d3.select("#graph")
+                   .append("g")
+                   .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    // Append all the paths to the main SVG element.
+    G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
+
+    // for mouseover effects
+    var mouseG = svgElt.append("g")
+                       .attr("class", "mouse-over-effects");
+    mouseG.append("path") // for mouseover vertical line
+          .attr("class", "mouse-line")
+          .attr("opacity", "0");
+
+    // set up charm data
+    var charms = mouseG.selectAll(".mouse-charm")
+                       .data(G_MOUSECHARMS)
+                       .enter()
+                       .append("g")
+                       .attr("class", "mouse-charm");
+
+    charms.append("circle").attr("r", 5);
+    charms.append("text").attr("transform", "translate(7,3)");
+
+    // This is the event handling rect.
+    svgElt.append("svg:rect")
+          .attr("class", "pane")
+          .attr("id", "event_rect")
+          .attr("width", width)
+          .attr("height", height)
+          .attr('pointer-events', 'all')
+    //      .call(d3.zoom().on("zoom", function(){
+    //        let oldxscale = xscale;
+    //        let newxscale = d3.event.transform.rescaleX(xscale);
+    //        draw(newxscale);
+    //      }))
+          .on('mouseout', function() { // on mouse out hide line, circles and text
+            d3.select(".mouse-line")
+              .style("opacity", "0");
+            d3.selectAll(".mouse-charm circle")
+              .style("opacity", "0");
+            d3.selectAll(".mouse-charm text")
+              .style("opacity", "0");
+          })
+          .on('mouseover', function() { // on mouse in show line, circles and text
+            d3.select(".mouse-line")
+              .style("opacity", "1");
+            d3.selectAll(".mouse-charm circle")
+              .style("opacity", "1");
+            d3.selectAll(".mouse-charm text")
+              .style("opacity", "1");
+          })
+          .on('mousemove', nrg.doMouseMove);
+      // Add the x Axis
+      svgElt.append("g")
+          .attr("class", "x axis")
+          .attr("transform", "translate(0," + height + ")");
+
+      // y axis
+      svgElt.append("g")
+            .attr("class", "axis energy_axis");
+      svgElt.append("text")
+            .attr("text-anchor", "middle")
+            .attr("transform", "translate(-50 ,"+(height/2)+")rotate(-90)")  // centre below axis
+            .text("energy (kwh)");
+
+      // the temperature y axis
+      svgElt.append("g")
+          .attr("class", "axis temp_axis")
+          .attr("transform", "translate(" + width + ",0)");
+      svgElt.append("text")
+            .attr("text-anchor", "middle")
+            .attr("transform", "translate("+(width + 35)+","+(height/4)+")rotate(-90)")
+            .text("Temp/Dew pt °F");
+
+      // the cloud y axis
+      svgElt.append("g")
+          .attr("class", "axis cloud_axis")
+          .attr("transform", "translate(" + (width-50) + "," + (0) + ")");
+      svgElt.append("text")
+            .attr("text-anchor", "middle")
+            .attr("transform", "translate("+(width - 15)+","+(height/8)+")rotate(-90)")
+            .text("Cloud Cover");
+
+    //scales
+    nrg.xscale        = d3.scaleTime()  .range([0, width   ]);
+    nrg.yscale_energy = d3.scaleLinear().range([0, height  ]); // energy
+    nrg.yscale_temps  = d3.scaleLinear().range([0, height/2]); // temps
+    nrg.yscale_cloud  = d3.scalePow().exponent(0.7).range([0, height/4]); // clouds
+
+    // global x-axis used for everything (time)
+    nrg.xaxis = d3.axisBottom(nrg.xscale);
+    //draw(xscale);
+  },
+
+  /**
+   * Handles mouse moving over svg (draws charms and stuff).
+   */ 
+  doMouseMove: function() {
+    // NOTE: can get event info from d3.event
+
+    let theX = nrg.xscale.invert(d3.mouse(this)[0]),
+        bisectDate = d3.bisector(function(d) { return d.timestamp; }).left;
+    let i, d0, d1, de, dw;
+
+    try {
+      // identify closest point in energy dataset
+      i  = bisectDate(nrg.energy, theX, 1); // searches based on date
+      d0 = nrg.energy[i - 1];
+      d1 = nrg.energy[i];
+      de  = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+    } catch(e) {
+      de = nrg.energy[nrg.energy.length-1];
+    }
+
+    try {
+      // identify closest point in weather dataset
+      i = bisectDate(nrg.weather, theX, 1);
+      d0 = nrg.weather[i-1];
+      d1 = nrg.weather[i];
+      dw = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+    } catch(e) {
+      // default to last entry (it's usually behind energy production data)
+      dw = nrg.weather[nrg.weather.length-1];
+    }
+
+    d3.select(".mouse-line")
+      .attr("d", function() {
+        // could use pos_c for mouse-following instead of snapping.
+        return "M" + nrg.xscale(de.timestamp) + "," + height
+             + " " + nrg.xscale(de.timestamp) + "," + 0;
+      });
+
+    d3.selectAll(".mouse-charm")
+      .attr("transform", function(dx, i) {
+            let dmap = {"energy": de, "temps": dw};
+            let dscale = {"energy": nrg.yscale_energy, "temps": nrg.yscale_temps};
+            let d = dmap[dx.dset];
+            if (!d) { return; }
+            let yscale = dscale[dx.yscale];
+            d3.select(this).select("text")
+              .text(d[dx.field].toFixed(2) + dx.units);
+            return "translate("
+              + nrg.xscale(d.timestamp) + ","
+              + yscale(d[dx.field]) +")";
+      });
+
+    // update displayed data
+    d3.select("span#datespan").text(de.timestamp);
+    d3.select("span#consspan").text(de.ConskWhDelta.toFixed(2));
+    d3.select("span#prodspan").text(de.ProdkWhDelta.toFixed(2));
+    d3.select("span#netenergyspan")
+      .text(de.ProdkWhDelta == 0
+            ? de.ConskWhDelta.toFixed(2)
+            : de.ProdkWhDelta.toFixed(2));
+  },
+
 };
 
 /*
@@ -156,110 +307,7 @@ function findNearestPointOnPathX(path, x) {
 */
 
 
-/**
- * This is the event handling rect.
- */
-svgElt.append("svg:rect")
-      .attr("class", "pane")
-      .attr("id", "event_rect")
-      .attr("width", width)
-      .attr("height", height)
-      .attr('pointer-events', 'all')
-//      .call(d3.zoom().on("zoom", function(){
-//        let oldxscale = xscale;
-//        let newxscale = d3.event.transform.rescaleX(xscale);
-//        draw(newxscale);
-//      }))
-      .on('mouseout', function() { // on mouse out hide line, circles and text
-        d3.select(".mouse-line")
-          .style("opacity", "0");
-        d3.selectAll(".mouse-charm circle")
-          .style("opacity", "0");
-        d3.selectAll(".mouse-charm text")
-          .style("opacity", "0");
-      })
-      .on('mouseover', function() { // on mouse in show line, circles and text
-        d3.select(".mouse-line")
-          .style("opacity", "1");
-        d3.selectAll(".mouse-charm circle")
-          .style("opacity", "1");
-        d3.selectAll(".mouse-charm text")
-          .style("opacity", "1");
-      })
-      .on('mousemove', function() { // mouse moving over canvas
 
-        // -- finds the closest point on the path
-        //var pos_p = findNearestPointOnPathX(d3.select("path#prod_path").node(), x);
-        //var pos_c = findNearestPointOnPathX(d3.select("path#cons_path").node(), x);
-
-        //let x = d3.event.offsetX;
-
-        let theX = xscale.invert(d3.mouse(this)[0]),
-            bisectDate = d3.bisector(function(d) { return d.timestamp; }).left;
-        let i, d0, d1, de, dw;
-
-        try {
-          // identify closest point in energy dataset
-          i  = bisectDate(nrg.energy, theX, 1); // searches based on date
-          d0 = nrg.energy[i - 1];
-          d1 = nrg.energy[i];
-          de  = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
-        } catch(e) {
-          de = nrg.energy[nrg.energy.length-1];
-        }
-
-        try {
-          // identify closest point in weather dataset
-          i = bisectDate(nrg.weather, theX, 1);
-          d0 = nrg.weather[i-1];
-          d1 = nrg.weather[i];
-          dw = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
-        } catch(e) {
-          // default to last entry (it's usually behind energy production data)
-          dw = nrg.weather[nrg.weather.length-1];
-        }
-
-        d3.select(".mouse-line")
-          .attr("d", function() {
-            // could use pos_c for mouse-following instead of snapping.
-            return "M" + xscale(de.timestamp) + "," + height
-                 + " " + xscale(de.timestamp) + "," + 0;
-          });
-
-        d3.selectAll(".mouse-charm")
-          .attr("transform", function(dx, i) {
-                let dmap = {"energy": de, "temps": dw};
-                let dscale = {"energy": yscale_energy, "temps": yscale_temps};
-                let d = dmap[dx.dset];
-                if (!d) { return; }
-                let yscale = dscale[dx.yscale];
-                d3.select(this).select("text")
-                  .text(d[dx.field].toFixed(2) + dx.units);
-                return "translate("
-                  + xscale(d.timestamp) + ","
-                  + yscale(d[dx.field]) +")";
-          });
-
-        // update displayed data
-        d3.select("span#datespan").text(de.timestamp);
-        d3.select("span#consspan").text(de.ConskWhDelta.toFixed(2));
-        d3.select("span#prodspan").text(de.ProdkWhDelta.toFixed(2));
-        d3.select("span#netenergyspan")
-          .text(de.ProdkWhDelta == 0
-                ? de.ConskWhDelta.toFixed(2)
-                : de.ProdkWhDelta.toFixed(2));
-
-      });
-
-
-//scales
-var xscale        = d3.scaleTime().range([0, width   ]);
-var yscale_energy = d3.scaleLinear().range([0, height  ]); // energy
-var yscale_temps  = d3.scaleLinear().range([0, height/2]); // temps
-var yscale_cloud  = d3.scalePow().exponent(0.7).range([0, height/4]); // clouds
-
-// global x-axis used for everything (time)
-var xaxis = d3.axisBottom(xscale);
 
 /**
  * Creates a line generator using the global xscale.
@@ -268,74 +316,22 @@ var xaxis = d3.axisBottom(xscale);
  * @returns a d3.line() generator
  */
 function makeLineForYscaleField(yscale, fld) {
-  return d3.line().x(function(d) { return xscale(d.timestamp); })
+  return d3.line().x(function(d) { return nrg.xscale(d.timestamp); })
                   .y(function(d) { return yscale(d[fld]); });
 }
 function makeAreaForYscaleField(yscale, fld) {
-  return d3.area().x(function(d) { return xscale(d.timestamp); })
+  return d3.area().x(function(d) { return nrg.xscale(d.timestamp); })
                   .y1(function(d) { return yscale(d[fld]); })
                   .y0(yscale(0));
 }
 
-// generators for the paths (place data on a line)
-var G_GENERATORS = {
-    'cons_path'     : makeLineForYscaleField(yscale_energy, "ConskWhDelta").curve(d3.curveStep),
-    'prod_path'     : makeLineForYscaleField(yscale_energy, "ProdkWhDelta").curve(d3.curveStep),
-    'net_prod_path' : makeLineForYscaleField(yscale_energy, "NetProdkWhDelta").curve(d3.curveStep),
-    'net_cons_path' : makeLineForYscaleField(yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
-    'temps_path'    : makeLineForYscaleField(yscale_temps,  "Temp"),
-    'clouds_path'   : makeAreaForYscaleField(yscale_cloud,  "skycover").curve(d3.curveStep),
-    //'dewpt_path'    : makeLineForYscaleField(yscale_temps,  "dewpt")
-};
 
-
-
-//// for cutting stuff  -- not sure why it doesn't work.
-//svgElt.append("clipPath")
-//    .attr("id", "clip")
-//    .append("rect")
-//    .attr("width", width)
-//    .attr("height", height);
-//
-
-// Add the x Axis
-svgElt.append("g")
-    .attr("class", "x axis")
-    .attr("transform", "translate(0," + height + ")");
-
-// y axis
-svgElt.append("g")
-      .attr("class", "axis energy_axis");
-svgElt.append("text")
-      .attr("text-anchor", "middle")
-      .attr("transform", "translate(-50 ,"+(height/2)+")rotate(-90)")  // centre below axis
-      .text("energy (kwh)");
-
-// the temperature y axis
-svgElt.append("g")
-    .attr("class", "axis temp_axis")
-    .attr("transform", "translate(" + width + ",0)");
-svgElt.append("text")
-      .attr("text-anchor", "middle")
-      .attr("transform", "translate("+(width + 35)+","+(height/4)+")rotate(-90)")
-      .text("Temp/Dew pt °F");
-
-// the cloud y axis
-svgElt.append("g")
-    .attr("class", "axis cloud_axis")
-    .attr("transform", "translate(" + (width-50) + "," + (0) + ")");
-svgElt.append("text")
-      .attr("text-anchor", "middle")
-      .attr("transform", "translate("+(width - 15)+","+(height/8)+")rotate(-90)")
-      .text("Cloud Cover");
-
-//svgElt.append("text")
-//      .attr("text-anchor", "middle")
-//      .attr("transform", "translate("+(width + 35)+","+(height/2)+")rotate(-90)")  // centre below axis
-//      .text("Temp/Dew pt °F");
-
+/**
+ * Sets up the path data and lays out the svg structure.
+ */
 function draw(xscale) {
   // apply data sets
+  let svgElt = d3.select("#graph")
   svgElt.select("path#cons_path").data([nrg.energy]);
   svgElt.select("path#prod_path").data([nrg.energy]);
   svgElt.select("path#net_prod_path").data([nrg.energy]);
@@ -345,10 +341,22 @@ function draw(xscale) {
   svgElt.select("path#clouds_path").data([nrg.weather]);
   //svgElt.select("path#dewpt_path").data([nrg.weather]);
 
-  yscale_temps.domain(d3.extent(nrg.weather, function(d) { return d.Temp; }).reverse());
+  nrg.yscale_temps.domain(d3.extent(nrg.weather, function(d) { return d.Temp; }).reverse());
   //yscale_cloud.domain(d3.extent(nrg.raw_weather, function(d) { return d.skycover; }));
-  yscale_cloud.domain([0, 1]);
-  yscale_energy.domain([5, -2.5]);
+  nrg.yscale_cloud.domain([0, 1]);
+  nrg.yscale_energy.domain([5, -2.5]);
+
+  // generators for the paths (place data on a line)
+  var G_GENERATORS = {
+      'cons_path'     : makeLineForYscaleField(nrg.yscale_energy, "ConskWhDelta").curve(d3.curveStep),
+      'prod_path'     : makeLineForYscaleField(nrg.yscale_energy, "ProdkWhDelta").curve(d3.curveStep),
+      'net_prod_path' : makeLineForYscaleField(nrg.yscale_energy, "NetProdkWhDelta").curve(d3.curveStep),
+      'net_cons_path' : makeLineForYscaleField(nrg.yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
+      'temps_path'    : makeLineForYscaleField(nrg.yscale_temps,  "Temp"),
+      'clouds_path'   : makeAreaForYscaleField(nrg.yscale_cloud,  "skycover").curve(d3.curveStep),
+      //'dewpt_path'    : makeLineForYscaleField(nrg.yscale_temps,  "dewpt")
+  };
+
 
   // transform all of the paths
   G_PATHS.forEach(function(p) {
@@ -360,15 +368,13 @@ function draw(xscale) {
   G_PATHS.forEach(function(p) {
     // insert data
     svgElt.select("path#" + p).attr("d", G_GENERATORS[p]);
-    // apply clipping
-//    svgElt.select("path#" + p).attr("clip-path", "url(#clip)");
   });
 
   // set up the axes
-  svgElt.select("g.x.axis")      .call(xaxis.scale(xscale));
-  svgElt.select("g.energy_axis") .call(d3.axisLeft(yscale_energy).tickSize(-width));
-  svgElt.select("g.temp_axis")   .call(d3.axisRight(yscale_temps));
-  svgElt.select("g.cloud_axis")  .call(d3.axisRight(yscale_cloud));
+  svgElt.select("g.x.axis")      .call(nrg.xaxis.scale(nrg.xscale));
+  svgElt.select("g.energy_axis") .call(d3.axisLeft(nrg.yscale_energy).tickSize(-width));
+  svgElt.select("g.temp_axis")   .call(d3.axisRight(nrg.yscale_temps));
+  svgElt.select("g.cloud_axis")  .call(d3.axisRight(nrg.yscale_cloud));
 
 }
 
@@ -445,7 +451,7 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
     //xscale.domain([mintime, maxtime]);
 
     // plot it!
-    draw(xscale);
+    draw(nrg.xscale);
   });
 
 d3.csv("data/temps.csv", {credentials: 'same-origin'},
@@ -497,6 +503,6 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
     //yscale_energy.domain([0, d3.max(data, function(d) { return d.ds_rate; })]);
     //yscale_temps.domain([d3.max(data, function(d) { return d.Temp; }), 0]);
     // plot it!
-    draw(xscale);
+    draw(nrg.xscale);
   });
 
