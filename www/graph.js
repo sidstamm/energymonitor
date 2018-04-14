@@ -13,7 +13,7 @@ var margin = {top: 30, right: 50, bottom: 30, left: 70},
     height = 500 - margin.top - margin.bottom;
 
 // global paths
-var G_PATHS = ["temps_path", "dewpt_path", "clouds_path",
+var G_PATHS = ["temps_path", /*"dewpt_path",*/ "clouds_path",
                "cons_path", "prod_path", "net_prod_path", "net_cons_path"];
 
 var svgElt = d3.select("#graph")
@@ -285,7 +285,7 @@ var G_GENERATORS = {
     'net_cons_path' : makeLineForYscaleField(yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
     'temps_path'    : makeLineForYscaleField(yscale_temps,  "Temp"),
     'clouds_path'   : makeAreaForYscaleField(yscale_cloud,  "skycover").curve(d3.curveStep),
-    'dewpt_path'    : makeLineForYscaleField(yscale_temps,  "dewpt")
+    //'dewpt_path'    : makeLineForYscaleField(yscale_temps,  "dewpt")
 };
 
 
@@ -343,10 +343,11 @@ function draw(xscale) {
 
   svgElt.select("path#temps_path").data([nrg.weather]);
   svgElt.select("path#clouds_path").data([nrg.weather]);
-  svgElt.select("path#dewpt_path").data([nrg.weather]);
+  //svgElt.select("path#dewpt_path").data([nrg.weather]);
 
-  yscale_temps.domain([d3.max(nrg.weather, function(d) { return d.Temp; }), -20]);
-  yscale_cloud.domain(d3.extent(nrg.weather, function(d) { return d.skycover; }));
+  yscale_temps.domain(d3.extent(nrg.weather, function(d) { return d.Temp; }).reverse());
+  //yscale_cloud.domain(d3.extent(nrg.raw_weather, function(d) { return d.skycover; }));
+  yscale_cloud.domain([0, 1]);
   yscale_energy.domain([5, -2.5]);
 
   // transform all of the paths
@@ -462,12 +463,14 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
       m['Temp'] = 0;
     }
 
+    /*
     try {
       m['dewpt'] = +(m['dewpt'].trim());
       if (isNaN(m['dewpt'])) {  m['dewpt'] = 0; }
     } catch(e) {
       m['dewpt'] = 0;
     }
+    */
 
     // clean skycover numbers
     try {
