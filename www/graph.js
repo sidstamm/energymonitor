@@ -46,13 +46,13 @@ var nrg = {
   pageRange: null,
 
   //scales
-  xscale        : null,
-  yscale_energy : null,
-  yscale_temps  : null,
-  yscale_cloud  : null,
+  xscale        : d3.scaleTime(),
+  yscale_energy : d3.scaleLinear(),
+  yscale_temps  : d3.scaleLinear(),
+  yscale_cloud  : d3.scaleLinear(),
 
   // global x-axis used for everything (time)
-  xaxis : null,
+  xaxis : d3.axisBottom(this.xscale),
 
 
   pageZoom: function(factor) {
