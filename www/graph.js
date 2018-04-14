@@ -204,14 +204,19 @@ svgElt.append("svg:rect")
           d0 = nrg.energy[i - 1];
           d1 = nrg.energy[i];
           de  = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
+        } catch(e) {
+          de = nrg.energy[nrg.energy.length-1];
+        }
 
+        try {
           // identify closest point in weather dataset
           i = bisectDate(nrg.weather, theX, 1);
           d0 = nrg.weather[i-1];
           d1 = nrg.weather[i];
           dw = (theX - d0.timestamp > d1.timestamp - theX) ? d1 : d0;
         } catch(e) {
-          // suppress errors for incomplete data sets
+          // default to last entry (it's usually behind energy production data)
+          dw = nrg.weather[nrg.weather.length-1];
         }
 
         d3.select(".mouse-line")
@@ -226,6 +231,7 @@ svgElt.append("svg:rect")
                 let dmap = {"energy": de, "temps": dw};
                 let dscale = {"energy": yscale_energy, "temps": yscale_temps};
                 let d = dmap[dx.dset];
+                if (!d) { return; }
                 let yscale = dscale[dx.yscale];
                 d3.select(this).select("text")
                   .text(d[dx.field].toFixed(2) + dx.units);
@@ -235,6 +241,7 @@ svgElt.append("svg:rect")
           });
 
         // update displayed data
+        d3.select("span#datespan").text(de.timestamp);
         d3.select("span#consspan").text(de.ConskWhDelta.toFixed(2));
         d3.select("span#prodspan").text(de.ProdkWhDelta.toFixed(2));
         d3.select("span#netenergyspan")
