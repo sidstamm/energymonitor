@@ -8,9 +8,6 @@ var d3TimeParser = d3.timeParse("%m/%d/%Y, %I:%M:%S %p");
 
 var CtoF = function(c) { return +((c * 9.0 / 5.0) + 32); }
 
-var margin = {top: 30, right: 50, bottom: 30, left: 70},
-    width = 900 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
 
 // global paths
 const G_PATHS = ["temps_path", /*"dewpt_path",*/ "clouds_path",
@@ -25,14 +22,6 @@ const G_MOUSECHARMS = [
  //{'dset': "energy", 'field': "NetConskWhDelta", 'units': "kWh"}
 ];
 
-
-function DateRange(ts, offset, hours) {
-  let de = new Date(ts);
-  de.setDate(ts.getDate() + offset);
-  let dt = new Date(de);
-  dt.setHours(de.getHours() - hours);
-  return [ dt, de ];
-}
 
 var nrg = {
   raw_weather: [], /* This is where ALL the temp data will go. */
@@ -52,8 +41,25 @@ var nrg = {
   yscale_cloud  : d3.scaleLinear(),
 
   // global x-axis used for everything (time)
-  xaxis : d3.axisBottom(this.xscale),
+  xaxis: d3.axisBottom(this.xscale),
 
+  // graph sizes (these are set up on document load.
+  graph_margin: {top: 30, right: 50, bottom: 30, left: 40},
+  graph_width:  0,
+  graph_height: 0,
+  svg_bb: null,
+
+  computeSvgSize: function() {
+    console.log("computing");
+    //nrg.svg_bb = d3.select("svg#graph").node().getBBox();
+    nrg.svg_bb = d3.select("svg#graph").node().viewBox.baseVal;
+    nrg.graph_width  = nrg.svg_bb.width
+                      - nrg.graph_margin.left
+                      - nrg.graph_margin.right;
+    nrg.graph_height = nrg.svg_bb.height
+                      - nrg.graph_margin.top
+                      - nrg.graph_margin.bottom;
+  },
 
   pageZoom: function(factor) {
     nrg.pageHours /= factor;
@@ -75,7 +81,7 @@ var nrg = {
     nrg.recalcPageRange();
     nrg.pruneWeatherData();
     nrg.pruneEnergyData();
-    draw(nrg.xscale);
+    nrg.drawGraph();
   },
 
   /**
@@ -119,13 +125,67 @@ var nrg = {
   },
 
   /**
-   * Set up the SVG graph.  This runs after document load
+   * Sets up the path data and lays out the svg structure.
+   */
+  drawGraph: function() {
+    //nrg.computeSvgSize();
+
+    // apply data sets
+    let svgElt = d3.select("svg#graph")
+    svgElt.select("path#cons_path").data([nrg.energy]);
+    svgElt.select("path#prod_path").data([nrg.energy]);
+    svgElt.select("path#net_prod_path").data([nrg.energy]);
+    svgElt.select("path#net_cons_path").data([nrg.energy]);
+
+    svgElt.select("path#temps_path").data([nrg.weather]);
+    svgElt.select("path#clouds_path").data([nrg.weather]);
+    //svgElt.select("path#dewpt_path").data([nrg.weather]);
+
+    nrg.yscale_temps.domain(d3.extent(nrg.weather, function(d) { return d.Temp; }).reverse());
+    //yscale_cloud.domain(d3.extent(nrg.raw_weather, function(d) { return d.skycover; }));
+    nrg.yscale_cloud.domain([0, 1]);
+    nrg.yscale_energy.domain([5, -2.5]);
+
+    // generators for the paths (place data on a line)
+    var G_GENERATORS = {
+        'cons_path'     : makeLineForYscaleField(nrg.yscale_energy, "ConskWhDelta").curve(d3.curveStep),
+        'prod_path'     : makeLineForYscaleField(nrg.yscale_energy, "ProdkWhDelta").curve(d3.curveStep),
+        'net_prod_path' : makeLineForYscaleField(nrg.yscale_energy, "NetProdkWhDelta").curve(d3.curveStep),
+        'net_cons_path' : makeLineForYscaleField(nrg.yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
+        'temps_path'    : makeLineForYscaleField(nrg.yscale_temps,  "Temp"),
+        'clouds_path'   : makeAreaForYscaleField(nrg.yscale_cloud,  "skycover").curve(d3.curveStep),
+        //'dewpt_path'    : makeLineForYscaleField(nrg.yscale_temps,  "dewpt")
+    };
+
+
+    // transform all of the paths
+    G_PATHS.forEach(function(p) {
+      svgElt.select("path#" + p)
+        .attr("d", G_GENERATORS[p].x(function(d) {return nrg.xscale(d.timestamp);}));
+      });
+
+    // process the data in the paths
+    G_PATHS.forEach(function(p) {
+      // insert data
+      svgElt.select("path#" + p).attr("d", G_GENERATORS[p]);
+    });
+
+    // set up the axes
+    svgElt.select("g.x.axis")      .call(nrg.xaxis.scale(nrg.xscale));
+    svgElt.select("g.energy_axis") .call(d3.axisLeft(nrg.yscale_energy).tickSize(-nrg.graph_width));
+    svgElt.select("g.temp_axis")   .call(d3.axisRight(nrg.yscale_temps));
+    svgElt.select("g.cloud_axis")  .call(d3.axisRight(nrg.yscale_cloud));
+  },
+
+  /**
+   * Set up the SVG DOM.  This runs after document load
    * when we know things about how big to make the graph.
    */
   setupGraph: function() {
+    nrg.computeSvgSize();
     var svgElt = d3.select("#graph")
                    .append("g")
-                   .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+                   .attr("transform", "translate(" + nrg.graph_margin.left + "," + nrg.graph_margin.top + ")");
 
     // Append all the paths to the main SVG element.
     G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
@@ -151,13 +211,13 @@ var nrg = {
     svgElt.append("svg:rect")
           .attr("class", "pane")
           .attr("id", "event_rect")
-          .attr("width", width)
-          .attr("height", height)
+          .attr("width", nrg.graph_width)
+          .attr("height", nrg.graph_height)
           .attr('pointer-events', 'all')
     //      .call(d3.zoom().on("zoom", function(){
     //        let oldxscale = xscale;
     //        let newxscale = d3.event.transform.rescaleX(xscale);
-    //        draw(newxscale);
+    //        drawGraph(); //<- used to pass in new scale
     //      }))
           .on('mouseout', function() { // on mouse out hide line, circles and text
             d3.select(".mouse-line")
@@ -179,43 +239,43 @@ var nrg = {
       // Add the x Axis
       svgElt.append("g")
           .attr("class", "x axis")
-          .attr("transform", "translate(0," + height + ")");
+          .attr("transform", "translate(0," + nrg.graph_height + ")");
 
       // y axis
       svgElt.append("g")
             .attr("class", "axis energy_axis");
       svgElt.append("text")
             .attr("text-anchor", "middle")
-            .attr("transform", "translate(-50 ,"+(height/2)+")rotate(-90)")  // centre below axis
+            .attr("transform", "translate(-20 ,"+(nrg.graph_height/2)+")rotate(-90)")  // centre below axis
             .text("energy (kwh)");
 
       // the temperature y axis
       svgElt.append("g")
           .attr("class", "axis temp_axis")
-          .attr("transform", "translate(" + width + ",0)");
+          .attr("transform", "translate(" + nrg.graph_width + ",0)");
       svgElt.append("text")
             .attr("text-anchor", "middle")
-            .attr("transform", "translate("+(width + 35)+","+(height/4)+")rotate(-90)")
+            .attr("transform", "translate("+(nrg.graph_width + 35)+","+(nrg.graph_height/4)+")rotate(-90)")
             .text("Temp/Dew pt °F");
 
       // the cloud y axis
       svgElt.append("g")
           .attr("class", "axis cloud_axis")
-          .attr("transform", "translate(" + (width-50) + "," + (0) + ")");
+          .attr("transform", "translate(" + (nrg.graph_width-50) + "," + (0) + ")");
       svgElt.append("text")
             .attr("text-anchor", "middle")
-            .attr("transform", "translate("+(width - 15)+","+(height/8)+")rotate(-90)")
+            .attr("transform", "translate("+(nrg.graph_width - 15)+","+(nrg.graph_height/8)+")rotate(-90)")
             .text("Cloud Cover");
 
     //scales
-    nrg.xscale        = d3.scaleTime()  .range([0, width   ]);
-    nrg.yscale_energy = d3.scaleLinear().range([0, height  ]); // energy
-    nrg.yscale_temps  = d3.scaleLinear().range([0, height/2]); // temps
-    nrg.yscale_cloud  = d3.scalePow().exponent(0.7).range([0, height/4]); // clouds
+    nrg.xscale        = d3.scaleTime()  .range([0, nrg.graph_width   ]);
+    nrg.yscale_energy = d3.scaleLinear().range([0, nrg.graph_height  ]); // energy
+    nrg.yscale_temps  = d3.scaleLinear().range([0, nrg.graph_height/2]); // temps
+    nrg.yscale_cloud  = d3.scalePow().exponent(0.7).range([0, nrg.graph_height/4]); // clouds
 
     // global x-axis used for everything (time)
     nrg.xaxis = d3.axisBottom(nrg.xscale);
-    //draw(xscale);
+    //nrg.drawGraph();
   },
 
   /**
@@ -252,7 +312,7 @@ var nrg = {
     d3.select(".mouse-line")
       .attr("d", function() {
         // could use pos_c for mouse-following instead of snapping.
-        return "M" + nrg.xscale(de.timestamp) + "," + height
+        return "M" + nrg.xscale(de.timestamp) + "," + nrg.graph_height
              + " " + nrg.xscale(de.timestamp) + "," + 0;
       });
 
@@ -307,6 +367,14 @@ function findNearestPointOnPathX(path, x) {
 */
 
 
+function DateRange(ts, offset, hours) {
+  let de = new Date(ts);
+  de.setDate(ts.getDate() + offset);
+  let dt = new Date(de);
+  dt.setHours(de.getHours() - hours);
+  return [ dt, de ];
+}
+
 
 
 /**
@@ -326,57 +394,6 @@ function makeAreaForYscaleField(yscale, fld) {
 }
 
 
-/**
- * Sets up the path data and lays out the svg structure.
- */
-function draw(xscale) {
-  // apply data sets
-  let svgElt = d3.select("#graph")
-  svgElt.select("path#cons_path").data([nrg.energy]);
-  svgElt.select("path#prod_path").data([nrg.energy]);
-  svgElt.select("path#net_prod_path").data([nrg.energy]);
-  svgElt.select("path#net_cons_path").data([nrg.energy]);
-
-  svgElt.select("path#temps_path").data([nrg.weather]);
-  svgElt.select("path#clouds_path").data([nrg.weather]);
-  //svgElt.select("path#dewpt_path").data([nrg.weather]);
-
-  nrg.yscale_temps.domain(d3.extent(nrg.weather, function(d) { return d.Temp; }).reverse());
-  //yscale_cloud.domain(d3.extent(nrg.raw_weather, function(d) { return d.skycover; }));
-  nrg.yscale_cloud.domain([0, 1]);
-  nrg.yscale_energy.domain([5, -2.5]);
-
-  // generators for the paths (place data on a line)
-  var G_GENERATORS = {
-      'cons_path'     : makeLineForYscaleField(nrg.yscale_energy, "ConskWhDelta").curve(d3.curveStep),
-      'prod_path'     : makeLineForYscaleField(nrg.yscale_energy, "ProdkWhDelta").curve(d3.curveStep),
-      'net_prod_path' : makeLineForYscaleField(nrg.yscale_energy, "NetProdkWhDelta").curve(d3.curveStep),
-      'net_cons_path' : makeLineForYscaleField(nrg.yscale_energy, "NetConskWhDelta").curve(d3.curveStep),
-      'temps_path'    : makeLineForYscaleField(nrg.yscale_temps,  "Temp"),
-      'clouds_path'   : makeAreaForYscaleField(nrg.yscale_cloud,  "skycover").curve(d3.curveStep),
-      //'dewpt_path'    : makeLineForYscaleField(nrg.yscale_temps,  "dewpt")
-  };
-
-
-  // transform all of the paths
-  G_PATHS.forEach(function(p) {
-    svgElt.select("path#" + p)
-      .attr("d", G_GENERATORS[p].x(function(d) {return xscale(d.timestamp);}));
-    });
-
-  // process the data in the paths
-  G_PATHS.forEach(function(p) {
-    // insert data
-    svgElt.select("path#" + p).attr("d", G_GENERATORS[p]);
-  });
-
-  // set up the axes
-  svgElt.select("g.x.axis")      .call(nrg.xaxis.scale(nrg.xscale));
-  svgElt.select("g.energy_axis") .call(d3.axisLeft(nrg.yscale_energy).tickSize(-width));
-  svgElt.select("g.temp_axis")   .call(d3.axisRight(nrg.yscale_temps));
-  svgElt.select("g.cloud_axis")  .call(d3.axisRight(nrg.yscale_cloud));
-
-}
 
 /**
  * Hack to copy first (empty) value to end so we can close a shape.
@@ -451,7 +468,7 @@ d3.csv("data/envoy.csv", {credentials: 'same-origin'},
     //xscale.domain([mintime, maxtime]);
 
     // plot it!
-    draw(nrg.xscale);
+    nrg.drawGraph();
   });
 
 d3.csv("data/temps.csv", {credentials: 'same-origin'},
@@ -503,6 +520,6 @@ d3.csv("data/temps.csv", {credentials: 'same-origin'},
     //yscale_energy.domain([0, d3.max(data, function(d) { return d.ds_rate; })]);
     //yscale_temps.domain([d3.max(data, function(d) { return d.Temp; }), 0]);
     // plot it!
-    draw(nrg.xscale);
+    nrg.drawGraph();
   });
 

@@ -15,10 +15,21 @@ body {
   font-family: arial;
 }
 
+div#graphcontainer {
+  /*border: 2px dotted red; */
+  max-width: 1000px;
+  max-height: 700px;
+}
+
+#graphcontainer table { width:100%; }
+
 svg {
   border: 1px solid black;
-  width:900px;
-  height:500px;
+/*  width: 100%;
+height: auto;
+max-width: 100%;
+max-height: 100%;
+*/
 }
 
 svg text {
@@ -73,8 +84,8 @@ path#net_prod_path {
 }
 
 .axis .tick {
-    stroke-dasharray:1,2;
-    }
+    stroke-dasharray:2,2;
+}
 
 
 rect.pane {
@@ -84,7 +95,7 @@ rect.pane {
 }
 
 button.pagebutton {
-  height: 500px;
+  height: 100%;
   width: 30px;
   background-color: rgb(200, 200, 255);
   border: 1px solid black;
@@ -119,10 +130,17 @@ Net: <span id="netenergyspan"></span>kWh
 </p>
 
 
-<div style="height:510px; width:1000px;">
-<button class="pagebutton" onclick="nrg.pageAdvance(-1);">&lt;</button>
-<svg id="graph"></svg>
-<button class="pagebutton" onclick="nrg.pageAdvance(1);">&gt;</button>
+<div id="graphcontainer">
+<table>
+  <tr>
+    <td> <button class="pagebutton" onclick="nrg.pageAdvance(-1);">&lt;</button> </td>
+    <td style="width:100%">
+      <svg  xmlns="http://www.w3.org/2000/svg" version="1.1"
+            id="graph" viewbox="0 0 1000 700" preserveAspectRatio="xMidYMid meet"></svg>
+    </td>
+    <td> <button class="pagebutton" onclick="nrg.pageAdvance(1);">&gt;</button> </td>
+  </tr>
+</table>
 </div>
 
 </body>
