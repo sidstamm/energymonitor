@@ -7,10 +7,29 @@
 <html>
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="format-detection" content="telephone=no" />
 <script src="d3/d3.min.js"></script>
 <style>
 body {
   font-family: arial;
+}
+
+div#graphcontainer {
+  /*border: 2px dotted red; */
+  max-width: 1000px;
+  max-height: 700px;
+}
+
+#graphcontainer table { width:100%; }
+
+svg {
+  border: 1px solid black;
+/*  width: 100%;
+height: auto;
+max-width: 100%;
+max-height: 100%;
+*/
 }
 
 svg text {
@@ -25,9 +44,11 @@ path {
     fill: none;
 }
 
+/*
 path#dewpt_path { 
     stroke: rgb(70, 105, 70);
 }
+*/
 path#temps_path { 
     stroke: rgb(10, 195, 10);
 }
@@ -62,24 +83,65 @@ path#net_prod_path {
     shape-rendering: crispEdges;
 }
 
+.axis .tick {
+    stroke-dasharray:2,2;
+}
+
 
 rect.pane {
   cursor: move;
   fill: none; /*rgba(0,0,255, 0.1);*/
   pointer-events: all;
 }
+
+button.pagebutton {
+  height: 100%;
+  width: 30px;
+  background-color: rgb(200, 200, 255);
+  border: 1px solid black;
+  margin: 0px;
+  padding: 2px;
+  vertical-align: top;
+}
+
+.mouse-charm circle {
+  fill: none;
+  stroke: rgba(0,0,0,0.3);
+  stroke-width: 2px;
+}
 </style>
 
-</head>
-<body>
-<h1>Energy usage data stats</h1>
-<p>Drag to pan, mouse wheel (or zoom) to zoom X axis.</p>
-
-Production: <span id="prodspan"></span>kWh, Consumption: <span id="consspan"></span>kWh<br/>
-
-<svg width="900" height="500" id="graph" style="border: 1px solid black;"></svg>
-
 <script language="javascript" src="graph.js"></script>
+
+</head>
+<body onload="nrg.setupGraph(this);">
+<h1>Energy usage data stats</h1>
+
+<p>
+<span id="datespan"></span><br/>
+Production: <span id="prodspan"></span>kWh,
+Consumption: <span id="consspan"></span>kWh,
+Net: <span id="netenergyspan"></span>kWh
+</p>
+
+<p>
+<button id="zoomout" class="zoombtn" onclick="nrg.pageZoom(.5);">-</button>
+<button id="zoomin" class="zoombtn"  onclick="nrg.pageZoom(2);">+</button>
+</p>
+
+
+<div id="graphcontainer">
+<table>
+  <tr>
+    <td> <button class="pagebutton" onclick="nrg.pageAdvance(-1);">&lt;</button> </td>
+    <td style="width:100%">
+      <svg  xmlns="http://www.w3.org/2000/svg" version="1.1"
+            id="graph" viewbox="0 0 1000 700" preserveAspectRatio="xMidYMid meet"></svg>
+    </td>
+    <td> <button class="pagebutton" onclick="nrg.pageAdvance(1);">&gt;</button> </td>
+  </tr>
+</table>
+</div>
 
 </body>
 
