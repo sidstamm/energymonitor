@@ -9,6 +9,8 @@
 
 import sqlite3
 import json
+import cgi
+from datetime import datetime, timedelta
 
 import cgitb
 cgitb.enable()
@@ -22,11 +24,47 @@ def dict_factory(cursor, row):
         d[col[0]] = row[idx]
     return d
 
-with sqlite3.connect("energymonitor.db") as conn:
-    conn.row_factory = dict_factory
-    c = conn.cursor()
 
-    c.execute('SELECT * FROM envoy')
-    data = c.fetchall()
-    print(json.dumps(data))
+query = cgi.FieldStorage()
+
+
+print(query)
+
+def queryDB(table, sts, dts):
+    if table not in ('envoy', 'wx'):
+        print("ERROR: %s not valid data value." % (table))
+        return
+
+    with sqlite3.connect("energymonitor.db") as conn:
+        conn.row_factory = dict_factory
+        c = conn.cursor()
+
+        print("STS: %s\nDTS: %s\n" % (sts.timestamp(), dts.timestamp()))
+
+        c.execute('SELECT * FROM envoy WHERE Timestamp BETWEEN :sts AND :dts',
+                  {'table': table, 'sts': sts.timestamp(), 'dts': dts.timestamp()})
+        data = c.fetchall()
+        print(json.dumps(data))
+
+
+
+# Default DB table is "envoy"
+try:
+    table = query['data'].value
+except:
+    table = "envoy"
+
+# Default range is 24 hours prior to now
+try:
+    dts = datetime.fromtimestamp(int(query['end'].value))
+except:
+    dts = datetime.now()
+
+try:
+    sts = datetime.fromtimestamp(int(query['start'].value))
+except:
+    sts = dts - timedelta(days=1)
+
+# Do the query
+queryDB(table, sts, dts)
 
