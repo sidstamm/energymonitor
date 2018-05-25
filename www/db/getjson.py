@@ -28,8 +28,6 @@ def dict_factory(cursor, row):
 query = cgi.FieldStorage()
 
 
-print(query)
-
 def queryDB(table, sts, dts):
     if table not in ('envoy', 'wx'):
         print("ERROR: %s not valid data value." % (table))
@@ -39,9 +37,7 @@ def queryDB(table, sts, dts):
         conn.row_factory = dict_factory
         c = conn.cursor()
 
-        print("STS: %s\nDTS: %s\n" % (sts.timestamp(), dts.timestamp()))
-
-        c.execute('SELECT * FROM envoy WHERE Timestamp BETWEEN :sts AND :dts',
+        c.execute('SELECT * FROM envoy WHERE timestamp BETWEEN :sts AND :dts',
                   {'table': table, 'sts': sts.timestamp(), 'dts': dts.timestamp()})
         data = c.fetchall()
         print(json.dumps(data))

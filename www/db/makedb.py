@@ -7,7 +7,7 @@ conn = sqlite3.connect("energymonitor.db") or die("Can't open DB")
 c = conn.cursor()
 
 envoytable = """
-CREATE TABLE envoy (Timestamp INTEGER,
+CREATE TABLE envoy (timestamp INTEGER,
                     Date TEXT,
                     Time TEXT,
                     ProdWnow INTEGER,
@@ -22,7 +22,7 @@ CREATE TABLE envoy (Timestamp INTEGER,
 
 
 wxtable = """
-CREATE TABLE wx (Timestamp INTEGER,
+CREATE TABLE wx (timestamp INTEGER,
                  Date TEXT,
                  Time TEXT,
                  Temp REAL,
