@@ -24,9 +24,8 @@ const G_MOUSECHARMS = [
 
 
 var nrg = {
-  raw_weather: [], /* This is where ALL the temp data will go. */
-  weather: [], /* This is where pruned temp data will go. */
-  energy: [], /* This is where pruned will go. */
+  weather: [], /* This is where temp data will go. */
+  energy: [], /* This is where energy data will go. */
 
   /* This defines the window of data (distance from most recent and num hours). */
   pageOffset: 0,
@@ -75,9 +74,8 @@ var nrg = {
   updatePage: function() {
     // recalculate the page and data, then redraw.
     nrg.recalcPageRange();
-    nrg.pruneEnergyData();
-    nrg.pruneWeatherData();
-    nrg.drawGraph();
+    nrg.fetchData()
+       .then(nrg.drawGraph);
   },
 
   /**
@@ -98,55 +96,74 @@ var nrg = {
     nrg.xscale.domain(nrg.pageRange);
   },
 
-  pruneWeatherData: function() {
-    if (nrg.pageRange == null) { nrg.recalcPageRange(); }
-    nrg.weather = nrg.raw_weather.filter(
-        function(d) {
-          return nrg.pageRange[0] <= d.timestamp
-              && nrg.pageRange[1] >= d.timestamp;
-        });
-    //hackAddZeroesToEnds(nrg.weather, ["Temp", "ConskWhDelta", "ProdWhToday", "ConsWhToday"]);
-  },
+  fetchData: function() {
+    let URL = "db/getjson.py?start=" + Math.floor(nrg.pageRange[0].getTime()/1000)
+		           + "&end=" + Math.floor(nrg.pageRange[1].getTime()/1000);
 
-  pruneEnergyData: function() {
-    if (nrg.pageRange == null) { nrg.recalcPageRange(); }
-    console.log("Page Range: " + nrg.pageRange);
-    let URL = "db/getjson.py?data=envoy&start=" + Math.floor(nrg.pageRange[0].getTime()/1000)
-		                      + "&end=" + Math.floor(nrg.pageRange[1].getTime()/1000);
-    d3.json(URL, {credentials: 'same-origin'}).then(
-      function(data) { /* Post-process callback */
-        // Iterate through and calculate diffs.
-        let lastWhP = 0;
-        let lastWhC = 0;
+    function ingestWxData(data) {
+      //preprocess all the data (scrub it)
+      data.forEach(function(m) {
+        m.timestamp = new Date(m.timestamp * 1000)
+        m.Temp = CtoF(m.Temp);
+
+        // clean skycover numbers
+        try {
+          if (isNaN(m['skycover'])) {  m['skycover'] = 0; }
+        } catch(e) { m['skycover'] = 0; }
+      });
+      
+      // clean out crappy dates
+      data = data.filter(function(d) {
+         return !isNaN(d['Temp'])
+             && d.Temp != 999.9
+             && d.Temp != CtoF(999.9);
+      });
   
-        // For each entry, find the previous row and calculate difference.
-        for (let i = 0; i < data.length; i++) {
-          data[i].timestamp = new Date(data[i].timestamp * 1000)
-          // When the ConsWhToday decreases, we've started over the running tally
-          if (data[i].ConsWhToday < lastWhC) { lastWhP = lastWhC = 0; }
+      nrg.weather = data;
+    }
+
+    function ingestEnergyData(data) {
+      // Iterate through and calculate diffs.
+      let lastWhP = 0;
+      let lastWhC = 0;
   
-          // calculate delta in kWh
-          data[i].ProdkWhDelta = (data[i].ProdWhToday - lastWhP) / 1000.0;
-          data[i].ConskWhDelta = -(data[i].ConsWhToday - lastWhC) / 1000.0;
+      // For each entry, find the previous row and calculate difference.
+      // (must be sequential)
+      for (let i = 0; i < data.length; i++) {
+        data[i].timestamp = new Date(data[i].timestamp * 1000)
+        // When the ConsWhToday decreases, we've started over the running tally
+        if (data[i].ConsWhToday < lastWhC) { lastWhP = lastWhC = 0; }
   
-          // calculate net export/import energy
-          let net = data[i].ProdkWhDelta + data[i].ConskWhDelta;
-          data[i].NetProdkWhDelta = Math.max(0, net);
-          data[i].NetConskWhDelta = Math.min(0, net);
+        // calculate delta in kWh
+        data[i].ProdkWhDelta = (data[i].ProdWhToday - lastWhP) / 1000.0;
+        data[i].ConskWhDelta = -(data[i].ConsWhToday - lastWhC) / 1000.0;
+
+        if (i == 0) { data[i].ProdkWhDelta = data[i].ConskWhDelta = 0; }
   
-          // store previous values for next delta
-          lastWhP = data[i].ProdWhToday;
-          lastWhC = data[i].ConsWhToday;
-        }
+        // calculate net export/import energy
+        let net = data[i].ProdkWhDelta + data[i].ConskWhDelta;
+        data[i].NetProdkWhDelta = Math.max(0, net);
+        data[i].NetConskWhDelta = Math.min(0, net);
   
-        // store for future use
-        nrg.energy = data;
-        hackAddZeroesToEnds( nrg.energy,
-                             ["ProdkWhDelta", "ConskWhDelta",
-                              "NetProdkWhDelta", "NetConskWhDelta",
-                              "ProdWhToday", "ConsWhToday"]);
-        nrg.xscale.domain(nrg.pageRange);
-    });
+        // store previous values for next delta
+        lastWhP = data[i].ProdWhToday;
+        lastWhC = data[i].ConsWhToday;
+      }
+  
+      // store for future use
+      nrg.energy = data;
+      hackAddZeroesToEnds( nrg.energy,
+                           ["ProdkWhDelta", "ConskWhDelta",
+                            "NetProdkWhDelta", "NetConskWhDelta",
+                            "ProdWhToday", "ConsWhToday"]);
+    }
+
+    return d3.json(URL, {credentials: 'same-origin'}).then(
+      function(data) {
+        ingestEnergyData(data['envoy']);
+        ingestWxData(data['wx']);
+      }
+    );
   },
 
   /**
@@ -167,7 +184,6 @@ var nrg = {
     //svgElt.select("path#dewpt_path").data([nrg.weather]);
 
     nrg.yscale_temps.domain(d3.extent(nrg.weather, function(d) { return d.Temp; }).reverse());
-    //yscale_cloud.domain(d3.extent(nrg.raw_weather, function(d) { return d.skycover; }));
     nrg.yscale_cloud.domain([0, 1]);
     nrg.yscale_energy.domain([5, -2.5]);
 
@@ -195,7 +211,7 @@ var nrg = {
       svgElt.select("path#" + p).attr("d", G_GENERATORS[p]);
     });
 
-    // set up the axes
+    // update the axes
     svgElt.select("g.x.axis")      .call(nrg.xaxis.scale(nrg.xscale));
     svgElt.select("g.energy_axis") .call(d3.axisLeft(nrg.yscale_energy).tickSize(-nrg.graph_width));
     svgElt.select("g.temp_axis")   .call(d3.axisRight(nrg.yscale_temps));
@@ -418,57 +434,4 @@ function hackAddZeroesToEnds(data, fields) {
   data.push(elt);
   return data;
 }
-
-
-d3.csv("data/temps.csv", {credentials: 'same-origin'},
-  function(m) {
-    m['timestamp'] = d3.utcParse("%Y%m%d%H%M")(m.Date.trim() + m.Time.trim());
-
-    // convert temps from °C to °F
-    try {
-      m['Temp'] = +(m['Temp'].trim());
-      if (isNaN(m['Temp'])) {  m['Temp'] = 0; }
-      //console.log(m.Temp);
-      m.Temp = CtoF(m.Temp);
-
-    } catch(e) {
-      m['Temp'] = 0;
-    }
-
-    /*
-    try {
-      m['dewpt'] = +(m['dewpt'].trim());
-      if (isNaN(m['dewpt'])) {  m['dewpt'] = 0; }
-    } catch(e) {
-      m['dewpt'] = 0;
-    }
-    */
-
-    // clean skycover numbers
-    try {
-      m['skycover'] = +(m['skycover'].trim());
-      if (isNaN(m['skycover'])) {  m['skycover'] = 0; }
-    } catch(e) {
-      m['skycover'] = 0;
-    }
-
-    return m;
-  }).then(function(data) {
-
-    // clean out crappy dates
-    data = data.filter(function(d) {
-       return d.Temp != 999.9
-           && d.Temp != CtoF(999.9);
-    });
-
-    nrg.raw_weather = data;
-    nrg.pruneWeatherData();
-
-    // Scale the range of the data
-    //xscale.domain(d3.extent(data, function(d) { return d.timestamp; }));
-    //yscale_energy.domain([0, d3.max(data, function(d) { return d.ds_rate; })]);
-    //yscale_temps.domain([d3.max(data, function(d) { return d.Temp; }), 0]);
-    // plot it!
-    //nrg.drawGraph();
-  });
 

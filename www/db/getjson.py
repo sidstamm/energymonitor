@@ -3,9 +3,14 @@
 ## Queries come in and ask for data, this gathers the data from the DB and 
 ## returns it as json.
 
-## TODO:
 # ?data=envoy&start=STS&end=DTS
 ## This provides data between STS and DTS (timestamps) from the envoy table.
+
+## Without a table name, provides BOTH envoy and weather
+# {
+#   'envoy': [ ... ],
+#   'wx': [...]
+# };
 
 import sqlite3
 import json
@@ -37,10 +42,10 @@ def queryDB(table, sts, dts):
         conn.row_factory = dict_factory
         c = conn.cursor()
 
-        c.execute('SELECT * FROM envoy WHERE timestamp BETWEEN :sts AND :dts',
-                  {'table': table, 'sts': sts.timestamp(), 'dts': dts.timestamp()})
+        c.execute('SELECT * FROM %s WHERE timestamp BETWEEN :sts AND :dts' % (table),
+                  {'sts': sts.timestamp(), 'dts': dts.timestamp()})
         data = c.fetchall()
-        print(json.dumps(data))
+        return json.dumps(data)
 
 
 
@@ -62,5 +67,7 @@ except:
     sts = dts - timedelta(days=1)
 
 # Do the query
-queryDB(table, sts, dts)
+print('{{"envoy": {envoy}, "wx": {wx}}}'.format(
+        envoy=queryDB('envoy', sts, dts),
+        wx=queryDB('wx', sts, dts)))
 
