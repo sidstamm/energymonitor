@@ -3,7 +3,7 @@
 import sqlite3
 import sys
 import csv
-import time
+from datetime import datetime, timezone
 
 if len(sys.argv) < 4:
     print("Usage: ./import.py <csvfile> <databasefile> <table>")
@@ -21,13 +21,13 @@ try:
 
         if sys.argv[3] == "envoy":
             for row in cr:
-                # Get the timestamp, date and time
-                tm_struct = time.strptime(row['Time'], "%a %b %d %H:%M:%S %Y")
+                # Get the timestamp, date and time (time here is localtime)
+                dt = datetime.strptime(row['Time'], "%a %b %d %H:%M:%S %Y")
                 # import it
                 c.execute('INSERT INTO envoy VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                          (time.mktime(tm_struct),
-                           time.strftime("%d-%m-%Y",tm_struct),
-                           time.strftime("%H:%M:%S",tm_struct),
+                          (dt.timestamp(),
+                           dt.strftime("%d-%m-%Y"),
+                           dt.strftime("%H:%M:%S"),
                            row['ProdWnow'],
                            row['ConsWnow'],
                            row['ProdWhToday'],
@@ -41,12 +41,16 @@ try:
             for row in cr:
                 # Get the timestamp, date and time
                 tmstr = "%s %s" %(row['Date'], row['Time'])
-                tm_struct = time.strptime(tmstr, "%Y%m%d %H%M")
+                dt = datetime.strptime(tmstr, "%Y%m%d %H%M")
+
+                # WARNING: time as fetched is UTC, need to convert to localtime
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(None)
+
                 # import it
                 c.execute('INSERT INTO wx VALUES (?,?,?,?,?,?,?,?,?,?)',
-                          (time.mktime(tm_struct),
-                           time.strftime("%d-%m-%Y",tm_struct),
-                           time.strftime("%H:%M:%S",tm_struct),
+                          (dt.timestamp(),
+                           dt.strftime("%d-%m-%Y"),
+                           dt.strftime("%H:%M:%S"),
                            row['Temp'],
                            row['dewpt'],
                            row['windspd'],
