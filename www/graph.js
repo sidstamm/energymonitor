@@ -65,7 +65,6 @@ var nrg = {
   },
 
   pageAdvance: function(numDays) {
-    //console.log("Advancing: " + numDays);
     nrg.pageOffset += numDays;
 
     // clamp to 0
@@ -88,11 +87,13 @@ var nrg = {
    */
   recalcPageRange() {
     let lastdate = new Date();
+    /*
     if (nrg.energy.length > 0) {
       lastdate = nrg.energy[nrg.energy.length - 1].timestamp;
     } else if (nrg.raw_weather.length > 0) {
       lastdate = nrg.raw_weather[nrg.raw_weather.length - 1].timestamp;
     }
+    */
     nrg.pageRange = DateRange(lastdate, nrg.pageOffset, nrg.pageHours);
     nrg.xscale.domain(nrg.pageRange);
   },
@@ -109,8 +110,9 @@ var nrg = {
 
   pruneEnergyData: function() {
     if (nrg.pageRange == null) { nrg.recalcPageRange(); }
-    let URL = "db/getjson.py?data=envoy&start=" + nrg.pageRange[0].getTime()/1000
-		                      + "&end=" + nrg.pageRange[1].getTime()/1000;
+    console.log("Page Range: " + nrg.pageRange);
+    let URL = "db/getjson.py?data=envoy&start=" + Math.floor(nrg.pageRange[0].getTime()/1000)
+		                      + "&end=" + Math.floor(nrg.pageRange[1].getTime()/1000);
     d3.json(URL, {credentials: 'same-origin'}).then(
       function(data) { /* Post-process callback */
         // Iterate through and calculate diffs.
@@ -227,6 +229,40 @@ var nrg = {
     charms.append("circle").attr("r", 5);
     charms.append("text").attr("transform", "translate(7,3)");
 
+    // Add the x Axis
+    svgElt.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + nrg.graph_height + ")");
+
+    // y axis
+    svgElt.append("g")
+          .attr("class", "axis energy_axis");
+    svgElt.append("text")
+          .attr("text-anchor", "middle")
+          .attr("transform", "translate(-20 ,"+(nrg.graph_height/2)+")rotate(-90)")  // centre below axis
+          .text("energy (kwh)");
+
+    // the temperature y axis
+    svgElt.append("g")
+        .attr("class", "axis temp_axis")
+        .attr("transform", "translate(" + nrg.graph_width + ",0)");
+    svgElt.append("text")
+          .attr("text-anchor", "middle")
+          .attr("transform", "translate("+(nrg.graph_width + 35)+","+(nrg.graph_height/4)+")rotate(-90)")
+          .text("Temp/Dew pt °F");
+
+    // the cloud y axis
+    svgElt.append("g")
+        .attr("class", "axis cloud_axis")
+        .attr("transform", "translate(" + (nrg.graph_width-50) + "," + (0) + ")");
+    svgElt.append("text")
+          .attr("text-anchor", "middle")
+          .attr("transform", "translate("+(nrg.graph_width - 15)+","+(nrg.graph_height/8)+")rotate(-90)")
+          .text("Cloud Cover");
+
+    // Append all the paths to the main SVG element.
+    G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
+
     // This is the event handling rect.
     svgElt.append("svg:rect")
           .attr("class", "pane")
@@ -256,40 +292,6 @@ var nrg = {
               .style("opacity", "1");
           })
           .on('mousemove', nrg.doMouseMove);
-      // Add the x Axis
-      svgElt.append("g")
-          .attr("class", "x axis")
-          .attr("transform", "translate(0," + nrg.graph_height + ")");
-
-      // y axis
-      svgElt.append("g")
-            .attr("class", "axis energy_axis");
-      svgElt.append("text")
-            .attr("text-anchor", "middle")
-            .attr("transform", "translate(-20 ,"+(nrg.graph_height/2)+")rotate(-90)")  // centre below axis
-            .text("energy (kwh)");
-
-      // the temperature y axis
-      svgElt.append("g")
-          .attr("class", "axis temp_axis")
-          .attr("transform", "translate(" + nrg.graph_width + ",0)");
-      svgElt.append("text")
-            .attr("text-anchor", "middle")
-            .attr("transform", "translate("+(nrg.graph_width + 35)+","+(nrg.graph_height/4)+")rotate(-90)")
-            .text("Temp/Dew pt °F");
-
-      // the cloud y axis
-      svgElt.append("g")
-          .attr("class", "axis cloud_axis")
-          .attr("transform", "translate(" + (nrg.graph_width-50) + "," + (0) + ")");
-      svgElt.append("text")
-            .attr("text-anchor", "middle")
-            .attr("transform", "translate("+(nrg.graph_width - 15)+","+(nrg.graph_height/8)+")rotate(-90)")
-            .text("Cloud Cover");
-
-    // Append all the paths to the main SVG element.
-    G_PATHS.forEach(function(p) { svgElt.append("path").attr("id", p); });
-
     //scales
     nrg.xscale        = d3.scaleTime()  .range([0, nrg.graph_width   ]);
     nrg.yscale_energy = d3.scaleLinear().range([0, nrg.graph_height  ]); // energy
@@ -366,30 +368,6 @@ var nrg = {
   },
 
 };
-
-/*
-function findNearestPointOnPathX(path, x) {
-  if (!path) { return {'x':0, 'y':0}; }
-  let pathLength = path.getTotalLength();
-  let beginning = x, end = pathLength, target;
-  var pos;
-  while (true) {
-    // start in middle and do binary search
-    target = Math.floor((beginning + end) / 2);
-    pos = path.getPointAtLength(target);
-
-    // stop if we get to an end or invalid pos
-    if ((target === end || target === beginning) && pos.x !== x) { break; }
-
-    // divide the range in half until pos.x == x
-    if      (pos.x > x) end = target;
-    else if (pos.x < x) beginning = target;
-    else                break; //position found
-  }
-
-  return pos;
-}
-*/
 
 
 function DateRange(ts, offset, hours) {
