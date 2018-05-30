@@ -29,14 +29,14 @@ if not os.path.isfile(DATABASE_FILEPATH):
     sys.exit(1)
 
 try:
-    with sqlite.connect(DATABASE_FILEPATH) as conn:
+    with sqlite3.connect(DATABASE_FILEPATH) as conn:
         c = conn.cursor()
         # Get the timestamp, date and time
-        dt = datetime.now()
+        dt = datetime.datetime.now()
 
         # import it
         c.execute('INSERT INTO envoy VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                  (dt.timestamp(),
+                  (int(dt.timestamp()),
                    dt.strftime("%d-%m-%Y"),
                    dt.strftime("%H:%M:%S"),
                    PJ['wattsNow'],           CJ['wattsNow'],
@@ -45,8 +45,9 @@ try:
                    PJ['wattHoursLifetime'],  CJ['wattHoursLifetime'])
                   )
 
-except:
-    print("ERROR Writing to database.")
+except Exception as e:
+    print("ERROR Writing to database:")
+    print(str(e))
     sys.exit(1)
 
 

@@ -16,7 +16,7 @@ print("Connecting to db %s" %(sys.argv[2]))
 # Now open the CSV file
 try:
     with open(sys.argv[1], 'r') as csvfile:
-        print("importing file %s into table %s" % (sys.argv[1], sys.argv[2]))
+        print("importing file %s into table %s" % (sys.argv[1], sys.argv[3]))
         cr = csv.DictReader(csvfile)
 
         if sys.argv[3] == "envoy":
