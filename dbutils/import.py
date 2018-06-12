@@ -60,11 +60,11 @@ try:
                            row['skcnd'])
                           )
         else:
-            print("ERROR: invalid table %s", sys.argv[2])
+            print("ERROR: invalid table %s", sys.argv[3])
 except FileNotFoundError as e:
-    print("Error: File not found %s" % sys.argv[2])
+    print("Error: Import File not found %s" % sys.argv[1])
     sys.exit(-1)
 
 conn.commit()
 conn.close()
-print("Closed %s" %(sys.argv[2]))
+print("Closed db %s" %(sys.argv[2]))
