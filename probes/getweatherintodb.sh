@@ -23,5 +23,5 @@ ${MYPATH}/getweather.sh ${OUTPUTFILE}
 sqlite3 $DATABASE 'DELETE FROM wx;'
 
 # Run the import script
-python3 ${MYPATH}/../db-utils/import.py ${OUTPUTFILE} ${DATABASE} wx
+python3 ${MYPATH}/../dbutils/import.py ${OUTPUTFILE} ${DATABASE} wx
 
