@@ -7,14 +7,18 @@
 
 import time;
 import requests;
+from urllib3.exceptions import InsecureRequestWarning
+
+# Suppress the warnings from urllib3
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 # Extracts info from Enphase Envoy iq
 
-PROD_DATA = requests.get("http://envoy.localdomain/api/v1/production")
-CONS_DATA = requests.get("http://envoy.localdomain/api/v1/consumption")
+PROD_DATA = requests.get("http://envoy.localdomain/api/v1/production", verify=False)
+CONS_DATA = requests.get("http://envoy.localdomain/api/v1/consumption", verify=False)
 
-PJ = PROD_DATA.json();
-CJ = CONS_DATA.json();
+PJ = PROD_DATA.json()
+CJ = CONS_DATA.json()
 
 # Generate some useful CSV.
 

@@ -12,11 +12,16 @@ import requests
 import sys
 import datetime
 
+from urllib3.exceptions import InsecureRequestWarning
+
+# Suppress the warnings from urllib3
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
 # Extracts info from Enphase Envoy iq
 # Puts data into sqlite3 db specified by command line argument argv[1]
 
-PROD_DATA = requests.get("http://envoy.localdomain/api/v1/production")
-CONS_DATA = requests.get("http://envoy.localdomain/api/v1/consumption")
+PROD_DATA = requests.get("http://envoy.localdomain/api/v1/production", verify=False)
+CONS_DATA = requests.get("http://envoy.localdomain/api/v1/consumption", verify=False)
 
 PJ = PROD_DATA.json();
 CJ = CONS_DATA.json();
